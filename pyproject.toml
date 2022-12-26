@@ -44,3 +44,8 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.plugins.pytest11]
 cool_plugin = "markdown_pytest"
+
+[tool.poetry.urls]
+"Source" = "https://github.com/mosquito/markdown-pytest"
+"Tracker" = "https://github.com/mosquito/markdown-pytest/issues"
+"Documentation" = "https://github.com/mosquito/markdown-pytest/blob/master/README.rst"
