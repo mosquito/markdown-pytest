@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "markdown-pytest"
+version = "0.1.0"
+description = "A simple module to test your documentation examples with pytest"
+authors = ["Dmitry Orlov <me@mosquito.su>"]
+readme = "README.md"
+packages = [{include = "markdown_pytest.py"}]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.plugins.pytest11]
+cool_plugin = "markdown_pytest"
