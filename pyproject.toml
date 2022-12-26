@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "markdown-pytest"
-version = "0.1.1"
+version = "0.1.2"
 license = "Apache-2.0"
 description = "A simple module to test your documentation examples with pytest"
 authors = ["Dmitry Orlov <me@mosquito.su>"]
 readme = "README.md"
 keywords=["pytest", "markdown", "documentation"]
-homepage = "https://github.com/mosquito/aiormq"
+homepage = "https://github.com/mosquito/markdown-pytest"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Plugins",
