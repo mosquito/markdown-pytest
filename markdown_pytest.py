@@ -1,4 +1,5 @@
 from io import StringIO
+from pathlib import Path
 from types import CodeType
 from typing import IO, Iterable, Iterator, NamedTuple, Optional, Tuple
 
@@ -87,4 +88,4 @@ def pytest_collect_file(
     if path.ext.lower() not in (".md", ".markdown"):
         return None
 
-    return MDModule.from_parent(parent=parent, fspath=path)
+    return MDModule.from_parent(parent=parent, path=Path(path))
