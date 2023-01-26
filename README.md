@@ -14,7 +14,7 @@ Markdown:
 Will be shown as:
 
 ```python
-assert False
+assert True
 ```
 
 You can use the special value `__name__` to check to separate the run example 
