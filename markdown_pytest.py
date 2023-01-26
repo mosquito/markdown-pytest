@@ -60,12 +60,12 @@ class MDModule(pytest.Module):
                 if code_block.syntax != "python":
                     continue
 
-                with StringIO() as fp:
-                    fp.write("\n" * code_block.start_line)
+                with StringIO() as code_fp:
+                    code_fp.write("\n" * code_block.start_line)
                     for line in code_block.lines:
                         if line.strip().startswith("# noqa"):
                             break
-                        fp.write(line)
+                        code_fp.write(line)
 
                     test_name = (
                         f"{code_block.start_line}-{code_block.end_line}"
@@ -75,8 +75,8 @@ class MDModule(pytest.Module):
                         name=f"line[{test_name}]",
                         parent=self,
                         code=compile(
-                            source=fp.getvalue(), mode="exec",
-                            filename=self.fspath.basename,
+                            source=code_fp.getvalue(), mode="exec",
+                            filename=self.fspath,
                         ),
                     )
 

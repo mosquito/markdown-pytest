@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "markdown-pytest"
-version = "0.1.4"
+version = "0.1.5"
 license = "Apache-2.0"
 description = "A simple module to test your documentation examples with pytest"
 authors = ["Dmitry Orlov <me@mosquito.su>"]
