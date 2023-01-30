@@ -6,7 +6,7 @@ Pytest plugin for running tests directly from Markdown files.
 Markdown:
 
 ````markdown
-<!--- name: test_assert_true -->
+<!-- name: test_assert_true -->
 ```python
 assert True
 ```
@@ -15,7 +15,7 @@ assert True
 <details>
 <summary>Will be shown as</summary>
 
-<!--- name: test_assert_true -->
+<!-- name: test_assert_true -->
 ```python
 assert True
 ```
@@ -32,14 +32,14 @@ Markdown:
 ````markdown
 This block performs import:
 
-<!--- name: test_example -->
+<!-- name: test_example -->
 ```python
 from itertools import chain
 ```
 
 `chain` usage example:
 
-<!--- name: test_example -->
+<!-- name: test_example -->
 ```python
 assert list(chain(range(2), range(2))) == [0, 1, 0, 1]
 ```
@@ -50,14 +50,14 @@ assert list(chain(range(2), range(2))) == [0, 1, 0, 1]
 
 This block performs import:
 
-<!--- name: test_example -->
+<!-- name: test_example -->
 ```python
 from itertools import chain
 ```
 
 `chain` usage example:
 
-<!--- name: test_example -->
+<!-- name: test_example -->
 ```python
 assert list(chain(range(2), range(2))) == [0, 1, 0, 1]
 ```
