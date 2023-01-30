@@ -22,6 +22,12 @@ assert True
 
 </details>
 
+This module parsed code by these rules:
+
+* Code without `<!-- name: test_name -->` comment will not be executed.
+* Allowed two or three dashes in the comment symbols
+* Code blocks with same names will be merged in one code and executed once
+
 Code split
 ----------
 
@@ -67,7 +73,7 @@ assert list(chain(range(2), range(2))) == [0, 1, 0, 1]
 Fictional Code Examples
 -----------------------
 
-Code without `&#60;!--- name: test_name --&#62;` comment will not be executed.
+Code without `<!-- name: test_name -->` comment will not be executed.
 
 ````markdown
 ```python
