@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "markdown-pytest"
-version = "0.1.5"
+version = "0.2.0"
 license = "Apache-2.0"
-description = "A simple module to test your documentation examples with pytest"
+description = "Pytest plugin for runs tests directly from Markdown files"
 authors = ["Dmitry Orlov <me@mosquito.su>"]
 readme = "README.md"
 keywords=["pytest", "markdown", "documentation"]
