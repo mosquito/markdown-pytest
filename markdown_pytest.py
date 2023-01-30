@@ -1,7 +1,7 @@
-from io import StringIO
+from itertools import groupby
 from pathlib import Path
 from types import CodeType
-from typing import IO, Iterable, Iterator, NamedTuple, Optional, Tuple
+from typing import Iterable, Iterator, Mapping, NamedTuple, Optional, Tuple
 
 import py
 import pytest
@@ -9,39 +9,86 @@ import pytest
 
 class CodeBlock(NamedTuple):
     start_line: int
-    syntax: Optional[str]
     lines: Tuple[str, ...]
+    arguments: Tuple[Tuple[str, str], ...]
+    path: str
+    name: str
 
     @property
     def end_line(self) -> int:
         return self.start_line + len(self.lines)
 
 
-def parse_code_blocks(fp: IO[str]) -> Iterator[CodeBlock]:
-    fp.seek(0)
+def parse_code_blocks(fspath) -> Iterator[CodeBlock]:
+    with open(fspath, "r") as fp:
+        lines = list(
+            filter(
+                lambda x: x[1].strip(),
+                enumerate(fp.read().splitlines()),
+            ),
+        )
 
-    lineno = 0
+        index = -1
 
-    def make_code_block(start_lineno: int, syntax: str) -> CodeBlock:
-        nonlocal lineno
+        def parse_arguments(lines: Iterable[str]) -> Mapping[str, str]:
+            result = {}
+            if not lines:
+                return result
 
-        lines = []
-        syntax = syntax.strip()
-        for code_line in fp:
-            if code_line.startswith("```"):
-                lineno += 1
-                return CodeBlock(
-                    start_line=start_lineno,
-                    lines=tuple(lines),
-                    syntax=syntax if syntax != "" else None,
-                )
-            lines.append(code_line)
-            lineno += 1
+            args = "".join(
+                "".join(lines).strip()[5:-3].splitlines(),
+            ).split(";")
 
-    for line in fp:
-        if line.startswith("```"):
-            yield make_code_block(lineno + 1, syntax=line.lstrip("`"))
-        lineno += 1
+            for arg in args:
+                if ":" not in arg:
+                    continue
+
+                key, value = arg.split(":", 1)
+                result[key.strip()] = value.strip()
+
+            return result
+
+        while index < len(lines):
+            index += 1
+
+            if index > (len(lines) - 1):
+                return
+
+            lineno, line = lines[index]
+
+            if not line.startswith("```python"):
+                continue
+
+            if index > 0 and lines[index - 1][1].endswith("-->"):
+                arguments_lines = []
+                for i in range(index - 1, 0, -1):
+                    arguments_lines.append(lines[i][1])
+                    if lines[i][1].startswith("<!---"):
+                        break
+
+                arguments = parse_arguments(arguments_lines[::-1])
+            else:
+                arguments = {}
+
+            # the next line after ```python
+            start_lineno = lineno + 1
+            code_lines = []
+
+            while line.startswith("```"):
+                index += 1
+                lineno, line = lines[index]
+                code_lines.append(line)
+
+            if "name" not in arguments:
+                continue
+
+            yield CodeBlock(
+                start_line=start_lineno,
+                lines=tuple(code_lines),
+                arguments=tuple(arguments.items()),
+                path=fspath,
+                name=arguments.pop("name"),
+            )
 
 
 class MDTestItem(pytest.Item):
@@ -53,32 +100,40 @@ class MDTestItem(pytest.Item):
         exec(self.module, {"__name__": "markdown-pytest"})
 
 
+def compile_code_blocks(*blocks: CodeBlock) -> Optional[CodeType]:
+    blocks = sorted(blocks, key=lambda x: x.start_line)
+    if not blocks:
+        return None
+    lines = [""] * blocks[-1].end_line
+    path = blocks[0].path
+    for block in blocks:
+        lines[block.start_line:block.end_line] = block.lines
+    return compile(source="\n".join(lines), mode="exec", filename=path)
+
+
 class MDModule(pytest.Module):
     def collect(self) -> Iterable["MDTestItem"]:
-        with open(self.fspath, "r") as fp:
-            for code_block in parse_code_blocks(fp):
-                if code_block.syntax != "python":
-                    continue
+        test_prefix = self.config.getoption("--md-prefix")
 
-                with StringIO() as code_fp:
-                    code_fp.write("\n" * code_block.start_line)
-                    for line in code_block.lines:
-                        if line.strip().startswith("# noqa"):
-                            break
-                        code_fp.write(line)
+        for test_name, blocks in groupby(
+            parse_code_blocks(self.fspath),
+            key=lambda x: x.name,
+        ):
+            if not test_name.startswith(test_prefix):
+                continue
 
-                    test_name = (
-                        f"{code_block.start_line}-{code_block.end_line}"
-                    )
+            code = compile_code_blocks(*blocks)
+            if code is None:
+                continue
 
-                    yield MDTestItem.from_parent(
-                        name=f"line[{test_name}]",
-                        parent=self,
-                        code=compile(
-                            source=code_fp.getvalue(), mode="exec",
-                            filename=self.fspath,
-                        ),
-                    )
+            yield MDTestItem.from_parent(name=test_name, parent=self, code=code)
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--md-prefix", default="test_",
+        help="Markdown test code-block prefix from comment",
+    )
 
 
 @pytest.hookimpl(trylast=True)
