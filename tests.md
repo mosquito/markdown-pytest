@@ -70,3 +70,23 @@ from pytest import raises
 with raises(AssertionError):
     assert False
 ```
+
+<!-- name: test_two_dashes_name -->
+```python
+assert True
+```
+
+<!--- name: test_three_dashes_name --->
+```python
+assert True
+```
+
+<!-- name: test_mixed_dashes_name_2_3 --->
+```python
+assert True
+```
+
+<!--- name: test_mixed_dashes_name_3_2 -->
+```python
+assert True
+```

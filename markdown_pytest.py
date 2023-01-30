@@ -55,8 +55,8 @@ def parse_code_blocks(fspath) -> Iterator[CodeBlock]:
             if index > 0 and lines[index - 1][1].endswith("-->"):
                 arguments_lines = []
                 for i in range(index - 1, -1, -1):
-                    arguments_lines.append(lines[i][1])
-                    if lines[i][1].startswith("<!---"):
+                    arguments_lines.append(lines[i][1].strip("-"))
+                    if lines[i][1].startswith("<!--"):
                         break
 
                 arguments = parse_arguments(arguments_lines[::-1])
