@@ -53,3 +53,20 @@ assert list(queue) == [2, 3]
 # test nervous backtick
 assert True
 ```````````````
+
+
+<!--- name: test_xfail -->
+```python
+from pytest import xfail
+
+xfail("it's ok")
+```
+
+
+<!--- name: test_raises -->
+```python
+from pytest import raises
+
+with raises(AssertionError):
+    assert False
+```
