@@ -3,7 +3,6 @@ from pathlib import Path
 from types import CodeType
 from typing import Iterable, Iterator, Mapping, NamedTuple, Optional, Tuple
 
-import py
 import pytest
 
 
@@ -21,13 +20,7 @@ class CodeBlock(NamedTuple):
 
 def parse_code_blocks(fspath) -> Iterator[CodeBlock]:
     with open(fspath, "r") as fp:
-        lines = list(
-            filter(
-                lambda x: x[1].strip(),
-                enumerate(fp.read().splitlines()),
-            ),
-        )
-
+        lines = list(enumerate(fp.read().splitlines()))
         index = -1
 
         def parse_arguments(lines: Iterable[str]) -> Mapping[str, str]:
@@ -56,12 +49,12 @@ def parse_code_blocks(fspath) -> Iterator[CodeBlock]:
 
             lineno, line = lines[index]
 
-            if not line.startswith("```python"):
+            if not line.rstrip().endswith("```python"):
                 continue
 
             if index > 0 and lines[index - 1][1].endswith("-->"):
                 arguments_lines = []
-                for i in range(index - 1, 0, -1):
+                for i in range(index - 1, -1, -1):
                     arguments_lines.append(lines[i][1])
                     if lines[i][1].startswith("<!---"):
                         break
@@ -74,19 +67,23 @@ def parse_code_blocks(fspath) -> Iterator[CodeBlock]:
             start_lineno = lineno + 1
             code_lines = []
 
-            while line.startswith("```"):
+            while True:
                 index += 1
                 lineno, line = lines[index]
+
+                if line.rstrip().startswith("```"):
+                    break
+
                 code_lines.append(line)
 
-            if "name" not in arguments:
+            if not arguments or "name" not in arguments:
                 continue
 
             yield CodeBlock(
                 start_line=start_lineno,
                 lines=tuple(code_lines),
                 arguments=tuple(arguments.items()),
-                path=fspath,
+                path=str(fspath),
                 name=arguments.pop("name"),
             )
 
@@ -122,6 +119,7 @@ class MDModule(pytest.Module):
             if not test_name.startswith(test_prefix):
                 continue
 
+            blocks = list(blocks)
             code = compile_code_blocks(*blocks)
             if code is None:
                 continue
@@ -131,16 +129,13 @@ class MDModule(pytest.Module):
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--md-prefix", default="test_",
+        "--md-prefix", default="test",
         help="Markdown test code-block prefix from comment",
     )
 
 
 @pytest.hookimpl(trylast=True)
-def pytest_collect_file(
-    path: py.path.local, parent: pytest.Collector,
-) -> Optional[MDModule]:
+def pytest_collect_file(path, parent: pytest.Collector) -> Optional[MDModule]:
     if path.ext.lower() not in (".md", ".markdown"):
         return None
-
     return MDModule.from_parent(parent=parent, path=Path(path))
