@@ -27,11 +27,36 @@ assert True
 
 </details>
 
-This module parsed code by these rules:
+Restrictions
+------------
+
+Since there is no way to add attributes to a block of code in markdown, this 
+module only runs those tests that are marked with a special comment.
+
+The general format of this comment is as follows: parts separated by semicolons
+are a colon separated key-value pairs, the last semicolon is optional,
+and parts not containing a colon are ignored.
+
+Example:
+
+```
+<!-- key1: value1; key2: value2 -->
+```
+
+This comment should be placed right before the block of code, namely the 
+line ````python`.
+
+The `name` key is required, and blocks that do not contain it will be ignored.
+
+Common rules
+------------
+
+This module parsing code in files by these rules:
 
 * Code without `<!-- name: test_name -->` comment will not be executed.
 * Allowed two or three dashes in the comment symbols
 * Code blocks with same names will be merged in one code and executed once
+* The optional comment parameter `case` will execute the block as a subtest.
 
 Code split
 ----------
@@ -74,6 +99,9 @@ assert list(chain(range(2), range(2))) == [0, 1, 0, 1]
 ```
 
 </details>
+
+subtests support
+----------------
 
 Of course, you can break tests into subtests by simply adding `case: case_name` 
 to the markdown comment.
