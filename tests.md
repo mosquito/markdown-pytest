@@ -1,8 +1,43 @@
-<!--- name: test_assert_true -->
+<!-- name: test_assert_true -->
 ```python
 # test_assert_true
 assert True
 ```
+
+<!-- 
+    name: test_multiline_comment_1
+-->
+```python
+assert True
+```
+
+<!-- 
+name: test_multiline_comment_2 
+-->
+```python
+assert True
+```
+
+<!-- name: test_with_subtests -->
+```python
+from collections import Counter
+```
+
+<!-- 
+    name: test_with_subtests; case: counter
+-->
+```python
+counter = Counter()
+```
+
+
+<!-- 
+    name: test_with_subtests; case: counter_add
+-->
+```python
+counter["foo"] = 1
+```
+
 
 <!--- name: test_four_backticks -->
 ````python
@@ -90,3 +125,27 @@ assert True
 ```python
 assert True
 ```
+
+<!--- name: test_blank_line_after_comment -->
+
+```python
+assert True
+```
+
+````
+<!--- name: test_will_should_newer_running -->
+```python
+assert False
+```
+````
+
+
+<details>
+<summary>Indented code block</summary>
+
+    <!--- name: test_overindented -->
+    ```python
+    assert True
+    ```
+
+</details>
