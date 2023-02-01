@@ -149,3 +149,27 @@ assert False
     ```
 
 </details>
+
+<!--- name: test_function -->
+```python
+def mul(*args):
+    result = args[0]
+    for i in args[1:]:
+        result *= i
+    return result
+```
+
+<!--- name: test_function; case: one argument -->
+```python
+assert mul(0) == 0
+```
+
+<!--- name: test_function; case: two arguments -->
+```python
+assert mul(1, 2) == 2
+```
+
+<!--- name: test_function; case: multiple arguments -->
+```python
+assert mul(*range(1, 10)) == 362880
+```

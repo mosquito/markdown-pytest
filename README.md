@@ -35,18 +35,30 @@ module only runs those tests that are marked with a special comment.
 
 The general format of this comment is as follows: parts separated by semicolons
 are a colon separated key-value pairs, the last semicolon is optional,
-and parts not containing a colon are ignored.
+and parts not containing a colon bill be ignored.
 
 Example:
 
-```
+```markdown
 <!-- key1: value1; key2: value2 -->
+```
+
+Multiline example:
+
+```markdown
+<!-- 
+    key1: value1; 
+    key2: value2;
+-->
 ```
 
 This comment should be placed right before the block of code, namely the 
 line ````python`.
 
 The `name` key is required, and blocks that do not contain it will be ignored.
+
+Some Markdown parsers support two or three dashes around comments, this module 
+supports both variants.
 
 Common rules
 ------------
@@ -198,15 +210,12 @@ This README.md file might be tested like this:
 ```bash
 $ pytest -v README.md
 ======================= test session starts =======================
-platform darwin -- Python 3.10.2, pytest-7.2.0, pluggy-1.0.0
-plugins: markdown-pytest-0.1.0
-collected 2 items
+plugins: subtests, markdown-pytest
+collected 3 items
 
-README.md::test_assert_true PASSED                                                                                                                                                                             [ 33%]
-README.md::test_example PASSED                                                                                                                                                                                 [ 66%]
-README.md::test_counter SUBPASS                                                                                                                                                                                [100%]
-README.md::test_counter SUBPASS                                                                                                                                                                                [100%]
-README.md::test_counter PASSED
+README.md::test_assert_true PASSED                           [ 33%]
+README.md::test_example PASSED                               [ 66%]
+README.md::test_counter SUBPASS                              [100%]
+README.md::test_counter SUBPASS                              [100%]
+README.md::test_counter PASSED                               [100%]
 ```
-
-
