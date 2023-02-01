@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "markdown-pytest"
-version = "0.2.1"
+version = "0.3.0"
 license = "Apache-2.0"
 description = "Pytest plugin for runs tests directly from Markdown files"
 authors = ["Dmitry Orlov <me@mosquito.su>"]
@@ -34,6 +34,7 @@ packages = [{include = "markdown_pytest.py"}]
 
 [tool.poetry.dependencies]
 python = "^3.7"
+pytest-subtests = "^0.9.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"

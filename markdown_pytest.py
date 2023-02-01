@@ -1,7 +1,8 @@
+from functools import partial
 from itertools import groupby
 from pathlib import Path
 from types import CodeType
-from typing import Iterable, Iterator, Mapping, NamedTuple, Optional, Tuple
+from typing import Dict, Iterable, Iterator, NamedTuple, Optional, TextIO, Tuple
 
 import pytest
 
@@ -18,83 +19,151 @@ class CodeBlock(NamedTuple):
         return self.start_line + len(self.lines)
 
 
+COMMENT_BRACKETS = ("<!--", "-->")
+
+
+LineType = Tuple[int, str]
+
+
+class LinesIterator:
+    lines: Tuple[LineType, ...]
+
+    def __init__(self, lines: Iterable[str]):
+        self.lines = tuple(
+            map(tuple, enumerate(line.rstrip() for line in lines)),
+        )
+        self.index = 0
+
+    @classmethod
+    def from_fp(cls, fp: TextIO) -> "LinesIterator":
+        return cls(fp.readlines())
+
+    @classmethod
+    def from_file(cls, filename) -> "LinesIterator":
+        with open(filename, "r") as fp:
+            return cls.from_fp(fp)
+
+    def get_relative(self, index: int) -> LineType:
+        return self.lines[self.index + index]
+
+    def is_last_line(self) -> bool:
+        return self.index >= len(self.lines)
+
+    def next(self) -> LineType:
+        lineno, line = self.get_relative(0)
+        self.index += 1
+        return lineno, line
+
+    def seek_relative(self, index: int) -> None:
+        self.index += index
+
+    def reverse_iterator(self, start_from: int = 0):
+        for i in range(start_from, self.index):
+            yield self.get_relative(-i - 1)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return self.next()
+        except IndexError:
+            raise StopIteration
+
+
+def parse_arguments(line_iterator: LinesIterator) -> Dict[str, str]:
+    for lineno, line in line_iterator.reverse_iterator(1):
+        if not line.strip():
+            continue
+        if not line.strip().endswith(COMMENT_BRACKETS[1]):
+            return {}
+        break
+
+    lines = []
+    for lineno, line in line_iterator.reverse_iterator(1):
+        lines.append(line)
+        if line.strip().startswith(COMMENT_BRACKETS[0]):
+            break
+
+    if not lines:
+        return {}
+
+    lines = lines[::-1]
+    result = {}
+    args = "".join(
+        "".join(lines).strip()[
+            len(COMMENT_BRACKETS[0]):-len(COMMENT_BRACKETS[1]) + 1
+        ].strip("-").strip().splitlines(),
+    ).split(";")
+
+    for arg in args:
+        if ":" not in arg:
+            continue
+
+        key, value = arg.split(":", 1)
+        result[key.strip()] = value.strip()
+
+    return result
+
+
 def parse_code_blocks(fspath) -> Iterator[CodeBlock]:
-    with open(fspath, "r") as fp:
-        lines = list(enumerate(fp.read().splitlines()))
-        index = -1
+    line_iterator = LinesIterator.from_file(fspath)
 
-        def parse_arguments(lines: Iterable[str]) -> Mapping[str, str]:
-            result = {}
-            if not lines:
-                return result
-
-            args = "".join(
-                "".join(lines).strip()[5:-3].splitlines(),
-            ).split(";")
-
-            for arg in args:
-                if ":" not in arg:
-                    continue
-
-                key, value = arg.split(":", 1)
-                result[key.strip()] = value.strip()
-
-            return result
-
-        while index < len(lines):
-            index += 1
-
-            if index > (len(lines) - 1):
+    for lineno, line in line_iterator:
+        if (
+            line.rstrip().endswith("```") and
+            line.lstrip().startswith("```")
+        ):
+            # skip all blocks without '```python`
+            end_of_block = "`" * line.count("`")
+            try:
+                lineno, line = line_iterator.next()
+            except IndexError:
                 return
 
-            lineno, line = lines[index]
-
-            if not line.rstrip().endswith("```python"):
-                continue
-
-            if index > 0 and lines[index - 1][1].endswith("-->"):
-                arguments_lines = []
-                for i in range(index - 1, -1, -1):
-                    arguments_lines.append(lines[i][1].strip("-"))
-                    if lines[i][1].startswith("<!--"):
-                        break
-
-                arguments = parse_arguments(arguments_lines[::-1])
-            else:
-                arguments = {}
-
-            # the next line after ```python
-            start_lineno = lineno + 1
-            code_lines = []
-
-            while True:
-                index += 1
-                lineno, line = lines[index]
-
-                if line.rstrip().startswith("```"):
+            for lineno, line in line_iterator:
+                if line.rstrip() == end_of_block:
                     break
 
-                code_lines.append(line)
+        if not line.endswith("```python"):
+            continue
 
-            if not arguments or "name" not in arguments:
-                continue
+        indent = line.rstrip().count(" ")
+        end_of_block = (" " * indent) + ("`" * line.count("`"))
 
-            yield CodeBlock(
-                start_line=start_lineno,
-                lines=tuple(code_lines),
-                arguments=tuple(arguments.items()),
-                path=str(fspath),
-                name=arguments.pop("name"),
+        arguments = parse_arguments(line_iterator)
+
+        # the next line after ```python
+        start_lineno = lineno + 1
+        code_lines = []
+
+        for lineno, line in line_iterator:
+            if line.startswith(end_of_block):
+                break
+            code_lines.append(line[indent:])
+
+        if not arguments or "name" not in arguments:
+            continue
+
+        case = arguments.get("case")
+        if case is not None:
+            start_lineno -= 1
+            # indent test case lines
+            code_lines = [f"    {code_line}" for code_line in code_lines]
+            code_lines.insert(
+                0, "with __markdown_pytest_subtests_fixture.test("
+                   f"msg='{case} line={start_lineno}'):",
             )
 
+        block = CodeBlock(
+            start_line=start_lineno,
+            lines=tuple(code_lines),
+            arguments=tuple(arguments.items()),
+            path=str(fspath),
+            name=arguments.pop("name"),
+        )
 
-class MDTestItem(pytest.Item):
-    def __init__(self, name: str, parent: "MDModule", code: CodeType):
-        super().__init__(name=name, parent=parent)
-        self.module = code
-
-    def runtest(self) -> None:
-        exec(self.module, {"__name__": "markdown-pytest"})
+        yield block
 
 
 def compile_code_blocks(*blocks: CodeBlock) -> Optional[CodeType]:
@@ -109,7 +178,12 @@ def compile_code_blocks(*blocks: CodeBlock) -> Optional[CodeType]:
 
 
 class MDModule(pytest.Module):
-    def collect(self) -> Iterable["MDTestItem"]:
+
+    @staticmethod
+    def caller(code, subtests):
+        eval(code, dict(__markdown_pytest_subtests_fixture=subtests))
+
+    def collect(self) -> Iterable[pytest.Function]:
         test_prefix = self.config.getoption("--md-prefix")
 
         for test_name, blocks in groupby(
@@ -124,7 +198,11 @@ class MDModule(pytest.Module):
             if code is None:
                 continue
 
-            yield MDTestItem.from_parent(name=test_name, parent=self, code=code)
+            yield pytest.Function.from_parent(
+                name=test_name,
+                parent=self,
+                callobj=partial(self.caller, code),
+            )
 
 
 def pytest_addoption(parser):
