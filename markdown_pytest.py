@@ -116,7 +116,10 @@ def parse_code_blocks(fspath) -> Iterator[CodeBlock]:
         ):
             # skip all blocks without '```python`
             end_of_block = "`" * line.count("`")
-            lineno, line = line_iterator.next()
+            try:
+                lineno, line = line_iterator.next()
+            except IndexError:
+                return
 
             for lineno, line in line_iterator:
                 if line.rstrip() == end_of_block:
