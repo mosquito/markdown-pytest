@@ -52,23 +52,61 @@ Multiline example:
 -->
 ```
 
-This comment should be placed right before the block of code, namely the 
-line ````python`.
+This comment should be placed right before the block of code, exactly upper 
+the backticks, for example: 
+
+````
+<!-- name: test_name -->
+```python
+```
+````
 
 The `name` key is required, and blocks that do not contain it will be ignored.
 
 Some Markdown parsers support two or three dashes around comments, this module 
-supports both variants.
+supports both variants. The `case` parameter is optional and might be used for
+subtests, see "Code split" section.
 
-Common rules
-------------
+Common parsing rules
+--------------------
 
-This module parsing code in files by these rules:
+This module uses its own, very simple Markdown parser, which only supports code 
+block parsing. In general, the parsing behavior of a file follows the following 
+rules:
 
 * Code without `<!-- name: test_name -->` comment will not be executed.
 * Allowed two or three dashes in the comment symbols
+
+  For example following line will be parsed identically:
+
+  ````markdown
+  <!--  name: test_name -->
+  <!--- name: test_name --->
+  <!--  name: test_name --->
+  <!--- name: test_name -->
+  ````
+
 * Code blocks with same names will be merged in one code and executed once
 * The optional comment parameter `case` will execute the block as a subtest.
+* Indented code blocks will be shifted left.
+  
+  For example:
+
+  ````markdown
+      <!-- name: test_name -->
+      ```python
+      assert True
+      ```
+  ````
+
+  Is the same of:
+
+  ````markdown
+  <!-- name: test_name -->
+  ```python
+  assert True
+  ```
+  ````
 
 Code split
 ----------
