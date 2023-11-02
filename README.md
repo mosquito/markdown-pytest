@@ -243,10 +243,12 @@ except WrongPlanet:
 Usage example
 -------------
 
-This README.md file might be tested like this:
+This README.md file can be tested like this:
 
 ```bash
 $ pytest -v README.md
+```
+```bash
 ======================= test session starts =======================
 plugins: subtests, markdown-pytest
 collected 3 items
