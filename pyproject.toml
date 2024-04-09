@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "markdown-pytest"
-version = "0.3.0"
+version = "0.3.1"
 license = "Apache-2.0"
 description = "Pytest plugin for runs tests directly from Markdown files"
 authors = ["Dmitry Orlov <me@mosquito.su>"]
