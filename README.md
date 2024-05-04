@@ -67,6 +67,20 @@ Some Markdown parsers support two or three dashes around comments, this module
 supports both variants. The `case` parameter is optional and might be used for
 subtests, see "Code split" section.
 
+Additionally, a code block can be put inside the comment block to hide some 
+initialization from the readers.
+
+````markdown
+<!-- name: test_name
+```python
+init_some_variable = 123
+```
+-->
+```python
+assert init_some_variable == 123
+```
+````
+
 Common parsing rules
 --------------------
 

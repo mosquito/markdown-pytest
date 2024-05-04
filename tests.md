@@ -18,6 +18,16 @@ name: test_multiline_comment_2
 assert True
 ```
 
+<!--
+name: test_multiline_hidden_code_block
+```python
+hidden_value = 123
+```
+-->
+```python
+assert hidden_value == 123
+```
+
 <!-- name: test_with_subtests -->
 ```python
 from collections import Counter
