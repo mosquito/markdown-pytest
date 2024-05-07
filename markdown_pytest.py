@@ -72,18 +72,46 @@ class LinesIterator:
 
 
 def parse_arguments(line_iterator: LinesIterator) -> Dict[str, str]:
+
+    outside_comment = inside_comment = False
+    index = line_iterator.index
+    # Checking if the code block is outside of the comment block
     for lineno, line in line_iterator.reverse_iterator(1):
         if not line.strip():
             continue
-        if not line.strip().endswith(COMMENT_BRACKETS[1]):
-            return {}
+        if line.strip().endswith(COMMENT_BRACKETS[1]):
+            outside_comment = True
         break
 
+    # Checking if the code block is inside of the comment block
+    if not outside_comment:
+        for lineno, line in line_iterator:
+            if not line.strip():
+                continue
+            if line.strip().endswith(COMMENT_BRACKETS[0]):
+                return {}
+            elif line.strip().endswith(COMMENT_BRACKETS[1]):
+                inside_comment = True
+                line_iterator.seek_relative(1)
+                break
+
+    if not outside_comment and not inside_comment:
+        return {}
+
     lines = []
-    for lineno, line in line_iterator.reverse_iterator(1):
+    reverse_iterator = line_iterator.reverse_iterator(1)
+    for lineno, line in reverse_iterator:
+        if line.strip().startswith("```"):
+            for _, line in reverse_iterator:
+                if line.strip().startswith("```"):
+                    break
+            continue
         lines.append(line)
         if line.strip().startswith(COMMENT_BRACKETS[0]):
             break
+
+    # Restore the iterator (due to inside comment forward iterations)
+    line_iterator.index = index
 
     if not lines:
         return {}
