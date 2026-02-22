@@ -3,7 +3,8 @@ import textwrap
 import pytest
 
 from markdown_pytest import (
-    _build_source, compile_code_blocks, parse_code_blocks,
+    _build_source, _collect_marks, _split_marks,
+    compile_code_blocks, parse_code_blocks,
 )
 
 
@@ -473,3 +474,258 @@ sys.exit(42)
     result = pytester.runpytest_subprocess("-v")
     result.assert_outcomes(failed=1)
     result.stdout.fnmatch_lines(["*Subprocess failed (exit code 42)*"])
+
+
+# --- _split_marks unit tests ---
+
+
+def test_split_marks_single():
+    assert _split_marks("xfail") == ["xfail"]
+
+
+def test_split_marks_multiple():
+    assert _split_marks("xfail, skip") == ["xfail", "skip"]
+
+
+def test_split_marks_with_parens():
+    assert _split_marks("xfail(raises=ZeroDivisionError)") == [
+        "xfail(raises=ZeroDivisionError)",
+    ]
+
+
+def test_split_marks_mixed():
+    assert _split_marks("xfail(raises=ValueError), skip") == [
+        "xfail(raises=ValueError)",
+        "skip",
+    ]
+
+
+def test_split_marks_empty():
+    assert _split_marks("") == []
+
+
+def test_split_marks_nested_parens():
+    assert _split_marks("xfail(reason='a, b'), skip") == [
+        "xfail(reason='a, b')",
+        "skip",
+    ]
+
+
+# --- _collect_marks unit tests ---
+
+
+def test_collect_marks_empty(md_file):
+    blocks = parse_blocks(
+        md_file,
+        """\
+        <!-- name: test_a -->
+        ```python
+        x = 1
+        ```
+    """,
+    )
+    assert _collect_marks(blocks) == ()
+
+
+def test_collect_marks_xfail(md_file):
+    blocks = parse_blocks(
+        md_file,
+        """\
+        <!-- name: test_a; mark: xfail -->
+        ```python
+        x = 1
+        ```
+    """,
+    )
+    marks = _collect_marks(blocks)
+    assert len(marks) == 1
+    assert marks[0].name == "xfail"
+
+
+def test_collect_marks_xfail_raises(md_file):
+    blocks = parse_blocks(
+        md_file,
+        """\
+        <!-- name: test_a; mark: xfail(raises=ZeroDivisionError) -->
+        ```python
+        1 / 0
+        ```
+    """,
+    )
+    marks = _collect_marks(blocks)
+    assert len(marks) == 1
+    assert marks[0].name == "xfail"
+    assert marks[0].kwargs["raises"] == ZeroDivisionError
+
+
+def test_collect_marks_from_split_blocks(md_file):
+    blocks = parse_blocks(
+        md_file,
+        """\
+        <!-- name: test_a; mark: xfail -->
+        ```python
+        x = 1
+        ```
+
+        <!-- name: test_a -->
+        ```python
+        assert x == 2
+        ```
+    """,
+    )
+    marks = _collect_marks(blocks)
+    assert len(marks) == 1
+    assert marks[0].name == "xfail"
+
+
+def test_collect_marks_deduplicates(md_file):
+    blocks = parse_blocks(
+        md_file,
+        """\
+        <!-- name: test_a; mark: xfail -->
+        ```python
+        x = 1
+        ```
+
+        <!-- name: test_a; mark: xfail -->
+        ```python
+        assert x == 2
+        ```
+    """,
+    )
+    marks = _collect_marks(blocks)
+    assert len(marks) == 1
+
+
+# --- pytester integration tests for marks ---
+
+
+def test_mark_xfail_raises_correct(pytester):
+    """xfail(raises=X) passes when correct exception raised → XFAIL."""
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_xr; mark: xfail(raises=ZeroDivisionError) -->
+```python
+1 / 0
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(xfailed=1)
+
+
+def test_mark_xfail_raises_wrong(pytester):
+    """xfail(raises=X) fails when wrong exception → FAILED."""
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_xr; mark: xfail(raises=ZeroDivisionError) -->
+```python
+raise ValueError("wrong")
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(failed=1)
+
+
+def test_mark_xfail_raises_no_exception(pytester):
+    """xfail(raises=X) when no exception → XPASS."""
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_xr; mark: xfail(raises=ZeroDivisionError) -->
+```python
+x = 1
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    # non-strict xfail that passes → xpassed
+    result.assert_outcomes(xpassed=1)
+
+
+def test_mark_skip(pytester):
+    """skip → test is skipped."""
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_s; mark: skip(reason="not needed") -->
+```python
+assert False
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(skipped=1)
+
+
+def test_mark_xfail_simple(pytester):
+    """xfail without args → XFAIL on failure."""
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_xf; mark: xfail -->
+```python
+assert False
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(xfailed=1)
+
+
+def test_mark_multiple(pytester):
+    """Multiple marks applied correctly."""
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!--
+    name: test_mm;
+    mark: xfail;
+    mark: strict
+-->
+```python
+assert False
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    # xfail + strict custom marker → xfailed
+    result.assert_outcomes(xfailed=1)
+
+
+def test_mark_split_blocks(pytester):
+    """Mark on first block applies to combined test."""
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_sp; mark: xfail -->
+```python
+x = 1
+```
+
+<!-- name: test_sp -->
+```python
+assert x == 2
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(xfailed=1)
+
+
+def test_mark_subprocess_xfail(pytester):
+    """Mark with subprocess + xfail."""
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_sub_xf; mark: xfail; subprocess: true -->
+```python
+assert False, "expected failure"
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(xfailed=1)
