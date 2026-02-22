@@ -54,7 +54,7 @@ markdown-pytest = "markdown_pytest"
 [project.urls]
 "Source" = "https://github.com/mosquito/markdown-pytest"
 "Tracker" = "https://github.com/mosquito/markdown-pytest/issues"
-"Documentation" = "https://github.com/mosquito/markdown-pytest/blob/master/README.rst"
+"Documentation" = "https://github.com/mosquito/markdown-pytest/blob/master/README.md"
 
 [tool.ruff]
 line-length = 80
