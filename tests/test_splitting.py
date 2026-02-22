@@ -11,6 +11,7 @@ def md_file(tmp_path):
         p = tmp_path / "test.md"
         p.write_text(textwrap.dedent(content))
         return str(p)
+
     return factory
 
 
@@ -19,7 +20,9 @@ def parse_blocks(md_file, content):
 
 
 def test_consecutive_blocks_combined(md_file):
-    blocks = parse_blocks(md_file, """\
+    blocks = parse_blocks(
+        md_file,
+        """\
         <!-- name: test_a -->
         ```python
         x = 1
@@ -29,7 +32,8 @@ def test_consecutive_blocks_combined(md_file):
         ```python
         assert x == 1
         ```
-    """)
+    """,
+    )
     assert len(blocks) == 2
     assert all(b.name == "test_a" for b in blocks)
 
@@ -39,7 +43,9 @@ def test_consecutive_blocks_combined(md_file):
 
 
 def test_non_consecutive_blocks_combined(md_file):
-    blocks = parse_blocks(md_file, """\
+    blocks = parse_blocks(
+        md_file,
+        """\
         <!-- name: test_a -->
         ```python
         x = 1
@@ -54,7 +60,8 @@ def test_non_consecutive_blocks_combined(md_file):
         ```python
         assert x == 1
         ```
-    """)
+    """,
+    )
     blocks_a = [b for b in blocks if b.name == "test_a"]
     assert len(blocks_a) == 2
 
@@ -64,7 +71,9 @@ def test_non_consecutive_blocks_combined(md_file):
 
 
 def test_non_consecutive_multiple_separators(md_file):
-    blocks = parse_blocks(md_file, """\
+    blocks = parse_blocks(
+        md_file,
+        """\
         <!-- name: test_main -->
         ```python
         values = [1]
@@ -94,7 +103,8 @@ def test_non_consecutive_multiple_separators(md_file):
         ```python
         assert values == [1, 2]
         ```
-    """)
+    """,
+    )
     blocks_main = [b for b in blocks if b.name == "test_main"]
     assert len(blocks_main) == 3
 
@@ -104,7 +114,9 @@ def test_non_consecutive_multiple_separators(md_file):
 
 
 def test_non_consecutive_preserves_execution_order(md_file):
-    blocks = parse_blocks(md_file, """\
+    blocks = parse_blocks(
+        md_file,
+        """\
         <!-- name: test_order -->
         ```python
         result = []
@@ -131,7 +143,8 @@ def test_non_consecutive_preserves_execution_order(md_file):
         result.append("third")
         assert result == ["first", "second", "third"]
         ```
-    """)
+    """,
+    )
     blocks_order = [b for b in blocks if b.name == "test_order"]
     code = compile_code_blocks(*blocks_order)
     assert code is not None
@@ -140,7 +153,9 @@ def test_non_consecutive_preserves_execution_order(md_file):
 
 def test_non_consecutive_class_definition(md_file):
     """Reproduces the exact scenario from issue #9."""
-    blocks = parse_blocks(md_file, """\
+    blocks = parse_blocks(
+        md_file,
+        """\
         <!-- name: test_cls -->
         ```python
         class Foo:
@@ -169,7 +184,8 @@ def test_non_consecutive_class_definition(md_file):
         bar = Foo(99)
         assert foo.value + bar.value == 141
         ```
-    """)
+    """,
+    )
     blocks_cls = [b for b in blocks if b.name == "test_cls"]
     assert len(blocks_cls) == 3
 

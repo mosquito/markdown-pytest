@@ -3,8 +3,14 @@ import inspect
 from pathlib import Path
 from types import CodeType
 from typing import (
-    Any, Dict, Iterable, Iterator, NamedTuple,
-    Optional, TextIO, Tuple,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    NamedTuple,
+    Optional,
+    TextIO,
+    Tuple,
 )
 
 import pytest
@@ -33,7 +39,8 @@ class LinesIterator:
 
     def __init__(self, lines: Iterable[str]) -> None:
         self.lines = tuple(
-            (i, line) for i, line in enumerate(
+            (i, line)
+            for i, line in enumerate(
                 (line.rstrip() for line in lines),
             )
         )
@@ -63,7 +70,8 @@ class LinesIterator:
         self.index += index
 
     def reverse_iterator(
-        self, start_from: int = 0,
+        self,
+        start_from: int = 0,
     ) -> Iterator[LineType]:
         for i in range(start_from, self.index):
             yield self.get_relative(-i - 1)
@@ -126,9 +134,11 @@ def parse_arguments(line_iterator: LinesIterator) -> Dict[str, str]:
     lines = lines[::-1]
     result = {}
     args = "".join(
-        "".join(lines).strip()[
-            len(COMMENT_BRACKETS[0]):-len(COMMENT_BRACKETS[1]) + 1
-        ].strip("-").strip().splitlines(),
+        "".join(lines)
+        .strip()[len(COMMENT_BRACKETS[0]) : -len(COMMENT_BRACKETS[1]) + 1]
+        .strip("-")
+        .strip()
+        .splitlines(),
     ).split(";")
 
     for arg in args:
@@ -150,26 +160,25 @@ def parse_code_blocks(fspath: str) -> Iterator[CodeBlock]:
     line_iterator = LinesIterator.from_file(fspath)
 
     for lineno, line in line_iterator:
-        if (
-            line.rstrip().endswith("```") and
-            line.lstrip().startswith("```")
-        ):
-            # skip all blocks without '```python`
-            end_of_block = "`" * line.count("`")
-            try:
-                lineno, line = line_iterator.next()
-            except IndexError:
-                return
-
-            for lineno, line in line_iterator:
-                if line.rstrip() == end_of_block:
-                    break
-
-        if not line.endswith("```python"):
+        stripped = line.lstrip()
+        if not stripped.startswith("```"):
             continue
 
-        indent = line.rstrip().count(" ")
-        end_of_block = (" " * indent) + ("`" * line.count("`"))
+        # Count the leading backtick run (fence length)
+        backtick_count = len(stripped) - len(stripped.lstrip("`"))
+        info_string = stripped[backtick_count:].strip()
+
+        if info_string != "python":
+            # Non-Python fenced block (```bash, ```json, bare ```, etc.)
+            # Skip to the closing fence
+            closing_fence = "`" * backtick_count
+            for lineno, line in line_iterator:
+                if line.strip() == closing_fence:
+                    break
+            continue
+
+        indent = len(line) - len(stripped)
+        end_of_block = (" " * indent) + ("`" * backtick_count)
 
         arguments = parse_arguments(line_iterator)
 
@@ -191,8 +200,9 @@ def parse_code_blocks(fspath: str) -> Iterator[CodeBlock]:
             # indent test case lines
             code_lines = [f"    {code_line}" for code_line in code_lines]
             code_lines.insert(
-                0, "with __markdown_pytest_subtests_fixture.test("
-                   f"msg='{case} line={start_lineno}'):",
+                0,
+                "with __markdown_pytest_subtests_fixture.test("
+                f"msg='{case} line={start_lineno}'):",
             )
 
         block = CodeBlock(
@@ -213,7 +223,7 @@ def compile_code_blocks(*blocks: CodeBlock) -> Optional[CodeType]:
     lines = [""] * sorted_blocks[-1].end_line
     path = sorted_blocks[0].path
     for block in sorted_blocks:
-        lines[block.start_line:block.end_line] = block.lines
+        lines[block.start_line : block.end_line] = block.lines
     return compile(source="\n".join(lines), mode="exec", filename=path)
 
 
@@ -232,7 +242,8 @@ def _collect_fixture_names(
 
 
 def _make_caller(
-    code: CodeType, fixture_names: Tuple[str, ...],
+    code: CodeType,
+    fixture_names: Tuple[str, ...],
 ) -> Any:
     all_names = tuple(dict.fromkeys((*fixture_names, "subtests")))
 
@@ -253,7 +264,6 @@ def _make_caller(
 
 
 class MDModule(pytest.Module):
-
     def collect(self) -> Iterable[pytest.Function]:
         test_prefix = self.config.getoption("--md-prefix")
 
@@ -279,14 +289,16 @@ class MDModule(pytest.Module):
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
-        "--md-prefix", default="test",
+        "--md-prefix",
+        default="test",
         help="Markdown test code-block prefix from comment",
     )
 
 
 @pytest.hookimpl(trylast=True)
 def pytest_collect_file(
-    path: Any, parent: pytest.Collector,
+    path: Any,
+    parent: pytest.Collector,
 ) -> Optional[MDModule]:
     if path.ext.lower() not in (".md", ".markdown"):
         return None
