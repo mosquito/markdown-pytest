@@ -451,6 +451,84 @@ assert rows[1] == {"name": "Bob", "role": "viewer"}
 ```
 -->
 
+Subprocess mode
+---------------
+
+Add `subprocess: true` to run a test in its own Python subprocess instead
+of the main pytest process. This is useful when the code under test
+modifies global state, calls `os.exit()`, or needs full process isolation.
+
+``````
+<!-- name: test_isolated; subprocess: true -->
+```python
+import sys
+sys.modules["__demo_marker__"] = True
+assert "__demo_marker__" in sys.modules
+```
+``````
+
+<!-- name: test_isolated; subprocess: true -->
+```python
+import sys
+sys.modules["__demo_marker__"] = True
+assert "__demo_marker__" in sys.modules
+```
+
+Subprocess tests support split blocks — multiple blocks with the same name
+are combined before being executed in a single subprocess:
+
+``````
+<!-- name: test_sub_split; subprocess: true -->
+```python
+data = {"key": "value"}
+```
+
+<!-- name: test_sub_split; subprocess: true -->
+```python
+assert data["key"] == "value"
+```
+``````
+
+<!-- name: test_sub_split; subprocess: true -->
+```python
+data = {"key": "value"}
+```
+
+<!-- name: test_sub_split; subprocess: true -->
+```python
+assert data["key"] == "value"
+```
+
+Hidden blocks also work with subprocess mode:
+
+``````
+<!--
+name: test_sub_hidden;
+subprocess: true
+```python
+_setup_value = 99
+```
+-->
+```python
+assert _setup_value == 99
+```
+``````
+
+<!--
+name: test_sub_hidden;
+subprocess: true
+```python
+_setup_value = 99
+```
+-->
+```python
+assert _setup_value == 99
+```
+
+> **Note:** subprocess tests cannot use pytest fixtures or subtests — those
+> features require the in-process test runner. If a test needs fixtures,
+> omit `subprocess: true`.
+
 Comment syntax
 --------------
 
@@ -481,6 +559,8 @@ Available comment parameters:
 * `case` — marks the block as a subtest (see [Subtests](#subtests)).
 * `fixtures` — comma-separated list of pytest fixtures to inject
   (see [Fixtures](#fixtures)).
+* `subprocess` — set to `true` to run the test in a separate Python
+  process (see [Subprocess mode](#subprocess-mode)).
 
 Fixture lists can be written in several ways:
 
@@ -590,3 +670,6 @@ Sample output:
     README.md::test_counter PASSED
     README.md::test_with_tmp_path PASSED
     README.md::test_hidden_demo PASSED
+    README.md::test_isolated PASSED
+    README.md::test_sub_split PASSED
+    README.md::test_sub_hidden PASSED

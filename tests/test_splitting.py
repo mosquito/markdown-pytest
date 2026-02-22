@@ -2,7 +2,9 @@ import textwrap
 
 import pytest
 
-from markdown_pytest import compile_code_blocks, parse_code_blocks
+from markdown_pytest import (
+    _build_source, compile_code_blocks, parse_code_blocks,
+)
 
 
 @pytest.fixture()
@@ -281,3 +283,193 @@ assert c["b"] == 2
     )
     result = pytester.runpytest_subprocess("-v")
     result.assert_outcomes(passed=2)
+
+
+def test_build_source_returns_source_and_path(md_file):
+    blocks = parse_blocks(
+        md_file,
+        """\
+        <!-- name: test_a -->
+        ```python
+        x = 1
+        ```
+    """,
+    )
+    result = _build_source(*blocks)
+    assert result is not None
+    source, path = result
+    assert "x = 1" in source
+    assert path.endswith("test.md")
+
+
+def test_build_source_empty():
+    assert _build_source() is None
+
+
+def test_build_source_matches_compile(md_file):
+    blocks = parse_blocks(
+        md_file,
+        """\
+        <!-- name: test_a -->
+        ```python
+        x = 1
+        ```
+
+        <!-- name: test_a -->
+        ```python
+        assert x == 1
+        ```
+    """,
+    )
+    result = _build_source(*blocks)
+    assert result is not None
+    source, path = result
+    code = compile(source=source, mode="exec", filename=path)
+    exec(code)
+
+
+def test_subprocess_basic(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_sub; subprocess: true -->
+```python
+assert 1 + 1 == 2
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_subprocess_failure(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_sub_fail; subprocess: true -->
+```python
+assert False, "should fail"
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*AssertionError*Subprocess failed*"])
+
+
+def test_subprocess_split(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_sub; subprocess: true -->
+```python
+x = 42
+```
+
+<!-- name: test_sub; subprocess: true -->
+```python
+assert x == 42
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_subprocess_non_consecutive(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_sub; subprocess: true -->
+```python
+data = [1]
+```
+
+<!-- name: test_regular -->
+```python
+assert True
+```
+
+<!-- name: test_sub; subprocess: true -->
+```python
+data.append(2)
+assert data == [1, 2]
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=2)
+
+
+def test_subprocess_interleaved_with_regular(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_sub; subprocess: true -->
+```python
+x = 10
+```
+
+<!-- name: test_reg -->
+```python
+y = 20
+assert y == 20
+```
+
+<!-- name: test_sub; subprocess: true -->
+```python
+x += 5
+assert x == 15
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=2)
+
+
+def test_subprocess_sigkill(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_sub_sigkill; subprocess: true -->
+```python
+import os, signal
+os.kill(os.getpid(), signal.SIGKILL)
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*Subprocess failed (exit code -*"])
+
+
+def test_subprocess_sigterm(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_sub_sigterm; subprocess: true -->
+```python
+import os, signal
+os.kill(os.getpid(), signal.SIGTERM)
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*Subprocess failed (exit code -*"])
+
+
+def test_subprocess_sys_exit(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_sub_exit; subprocess: true -->
+```python
+import sys
+sys.exit(42)
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*Subprocess failed (exit code 42)*"])
