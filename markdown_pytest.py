@@ -1,4 +1,5 @@
 import inspect
+import os
 
 from pathlib import Path
 from types import CodeType
@@ -216,7 +217,9 @@ def parse_code_blocks(fspath: str) -> Iterator[CodeBlock]:
         yield block
 
 
-def compile_code_blocks(*blocks: CodeBlock) -> Optional[CodeType]:
+def _build_source(
+    *blocks: CodeBlock,
+) -> Optional[Tuple[str, str]]:
     sorted_blocks = sorted(blocks, key=lambda x: x.start_line)
     if not sorted_blocks:
         return None
@@ -224,7 +227,15 @@ def compile_code_blocks(*blocks: CodeBlock) -> Optional[CodeType]:
     path = sorted_blocks[0].path
     for block in sorted_blocks:
         lines[block.start_line : block.end_line] = block.lines
-    return compile(source="\n".join(lines), mode="exec", filename=path)
+    return "\n".join(lines), path
+
+
+def compile_code_blocks(*blocks: CodeBlock) -> Optional[CodeType]:
+    result = _build_source(*blocks)
+    if result is None:
+        return None
+    source, path = result
+    return compile(source=source, mode="exec", filename=path)
 
 
 def _collect_fixture_names(
@@ -264,7 +275,35 @@ def _make_caller(
 
 
 class MDModule(pytest.Module):
+    @staticmethod
+    def subprocess_caller(source: str, path: str) -> None:
+        import subprocess
+        import sys
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".py", delete=False,
+        ) as f:
+            f.write(source)
+            tmp = f.name
+
+        try:
+            result = subprocess.run(
+                [sys.executable, tmp],
+                capture_output=True, text=True,
+            )
+        finally:
+            os.unlink(tmp)
+
+        if result.returncode != 0:
+            raise AssertionError(
+                f"Subprocess failed (exit code {result.returncode}):"
+                f"\n{result.stdout}\n{result.stderr}",
+            )
+
     def collect(self) -> Iterable[pytest.Function]:
+        from functools import partial
+
         test_prefix = self.config.getoption("--md-prefix")
 
         blocks_by_name: Dict[str, list] = {}
@@ -274,17 +313,35 @@ class MDModule(pytest.Module):
             blocks_by_name.setdefault(block.name, []).append(block)
 
         for test_name, blocks in blocks_by_name.items():
-            code = compile_code_blocks(*blocks)
-            if code is None:
-                continue
-
-            fixture_names = _collect_fixture_names(blocks)
-
-            yield pytest.Function.from_parent(
-                name=test_name,
-                parent=self,
-                callobj=_make_caller(code, fixture_names),
+            use_subprocess = any(
+                dict(b.arguments).get("subprocess") == "true"
+                for b in blocks
             )
+
+            if use_subprocess:
+                result = _build_source(*blocks)
+                if result is None:
+                    continue
+                source, path = result
+                yield pytest.Function.from_parent(
+                    name=test_name,
+                    parent=self,
+                    callobj=partial(
+                        self.subprocess_caller, source, path,
+                    ),
+                )
+            else:
+                code = compile_code_blocks(*blocks)
+                if code is None:
+                    continue
+
+                fixture_names = _collect_fixture_names(blocks)
+
+                yield pytest.Function.from_parent(
+                    name=test_name,
+                    parent=self,
+                    callobj=_make_caller(code, fixture_names),
+                )
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
