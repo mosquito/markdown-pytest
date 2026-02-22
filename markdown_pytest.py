@@ -1,3 +1,4 @@
+import builtins
 import inspect
 import os
 
@@ -252,6 +253,46 @@ def _collect_fixture_names(
     return tuple(dict.fromkeys(names))
 
 
+def _split_marks(value: str) -> list[str]:
+    result: list[str] = []
+    depth = 0
+    current: list[str] = []
+    for char in value:
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif char == "," and depth == 0:
+            part = "".join(current).strip()
+            if part:
+                result.append(part)
+            current = []
+            continue
+        current.append(char)
+    part = "".join(current).strip()
+    if part:
+        result.append(part)
+    return result
+
+
+def _collect_marks(
+    blocks: Iterable[CodeBlock],
+) -> Tuple[Any, ...]:
+    raw_parts: list[str] = []
+    for block in blocks:
+        arguments = dict(block.arguments)
+        mark_str = arguments.get("mark", "").strip()
+        if not mark_str:
+            continue
+        raw_parts.extend(_split_marks(mark_str))
+
+    marks: list[Any] = []
+    ns: Dict[str, Any] = {**vars(builtins), "pytest": pytest}
+    for part in dict.fromkeys(raw_parts):
+        marks.append(eval(f"pytest.mark.{part}", ns))
+    return tuple(marks)
+
+
 def _make_caller(
     code: CodeType,
     fixture_names: Tuple[str, ...],
@@ -317,13 +358,14 @@ class MDModule(pytest.Module):
                 dict(b.arguments).get("subprocess") == "true"
                 for b in blocks
             )
+            marks = _collect_marks(blocks)
 
             if use_subprocess:
                 result = _build_source(*blocks)
                 if result is None:
                     continue
                 source, path = result
-                yield pytest.Function.from_parent(
+                item = pytest.Function.from_parent(
                     name=test_name,
                     parent=self,
                     callobj=partial(
@@ -337,11 +379,15 @@ class MDModule(pytest.Module):
 
                 fixture_names = _collect_fixture_names(blocks)
 
-                yield pytest.Function.from_parent(
+                item = pytest.Function.from_parent(
                     name=test_name,
                     parent=self,
                     callobj=_make_caller(code, fixture_names),
                 )
+
+            for mark in marks:
+                item.add_marker(mark)
+            yield item
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

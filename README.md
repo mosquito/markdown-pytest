@@ -529,6 +529,83 @@ assert _setup_value == 99
 > features require the in-process test runner. If a test needs fixtures,
 > omit `subprocess: true`.
 
+Marks
+-----
+
+Add `mark: <expression>` to apply any
+[pytest mark](https://docs.pytest.org/en/stable/how-to/mark.html) to a
+test. The expression is evaluated as `pytest.mark.<expression>`.
+
+### Expected failure
+
+``````
+<!-- name: test_divide_by_zero; mark: xfail(raises=ZeroDivisionError) -->
+```python
+1 / 0
+```
+``````
+
+<!-- name: test_divide_by_zero; mark: xfail(raises=ZeroDivisionError) -->
+```python
+1 / 0
+```
+
+### xfail with reason
+
+``````
+<!-- name: test_xfail_reason; mark: xfail(reason="not implemented yet") -->
+```python
+assert False, "not implemented"
+```
+``````
+
+<!-- name: test_xfail_reason; mark: xfail(reason="not implemented yet") -->
+```python
+assert False, "not implemented"
+```
+
+### Skip a test
+
+``````
+<!-- name: test_skipped; mark: skip(reason="requires network") -->
+```python
+import urllib.request
+urllib.request.urlopen("http://localhost:99999")
+```
+``````
+
+<!-- name: test_skipped; mark: skip(reason="requires network") -->
+```python
+import urllib.request
+urllib.request.urlopen("http://localhost:99999")
+```
+
+### Marks with split blocks
+
+Only the first block needs the `mark:` declaration:
+
+``````
+<!-- name: test_mark_split_demo; mark: xfail -->
+```python
+x = 1
+```
+
+<!-- name: test_mark_split_demo -->
+```python
+assert x == 2, "expected to fail"
+```
+``````
+
+<!-- name: test_mark_split_demo; mark: xfail -->
+```python
+x = 1
+```
+
+<!-- name: test_mark_split_demo -->
+```python
+assert x == 2, "expected to fail"
+```
+
 Comment syntax
 --------------
 
@@ -561,6 +638,9 @@ Available comment parameters:
   (see [Fixtures](#fixtures)).
 * `subprocess` — set to `true` to run the test in a separate Python
   process (see [Subprocess mode](#subprocess-mode)).
+* `mark` — a pytest mark expression to apply to the test
+  (see [Marks](#marks)). Examples: `xfail`, `skip(reason="...")`,
+  `xfail(raises=ZeroDivisionError)`.
 
 Fixture lists can be written in several ways:
 
