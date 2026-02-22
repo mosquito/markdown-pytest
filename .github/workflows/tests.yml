@@ -28,6 +28,6 @@ jobs:
         run: uv python install ${{ matrix.python }}
       - run: uv sync
       - name: pytest
-        run: uv run pytest -vv README.md tests.md
+        run: uv run pytest -vv README.md tests/
         env:
           FORCE_COLOR: 1
