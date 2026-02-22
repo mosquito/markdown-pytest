@@ -2,7 +2,10 @@ from functools import partial
 from itertools import groupby
 from pathlib import Path
 from types import CodeType
-from typing import Dict, Iterable, Iterator, NamedTuple, Optional, TextIO, Tuple
+from typing import (
+    Any, Dict, Iterable, Iterator, NamedTuple,
+    Optional, TextIO, Tuple,
+)
 
 import pytest
 
@@ -28,9 +31,11 @@ LineType = Tuple[int, str]
 class LinesIterator:
     lines: Tuple[LineType, ...]
 
-    def __init__(self, lines: Iterable[str]):
+    def __init__(self, lines: Iterable[str]) -> None:
         self.lines = tuple(
-            map(tuple, enumerate(line.rstrip() for line in lines)),
+            (i, line) for i, line in enumerate(
+                (line.rstrip() for line in lines),
+            )
         )
         self.index = 0
 
@@ -39,7 +44,7 @@ class LinesIterator:
         return cls(fp.readlines())
 
     @classmethod
-    def from_file(cls, filename) -> "LinesIterator":
+    def from_file(cls, filename: str) -> "LinesIterator":
         with open(filename, "r") as fp:
             return cls.from_fp(fp)
 
@@ -57,14 +62,16 @@ class LinesIterator:
     def seek_relative(self, index: int) -> None:
         self.index += index
 
-    def reverse_iterator(self, start_from: int = 0):
+    def reverse_iterator(
+        self, start_from: int = 0,
+    ) -> Iterator[LineType]:
         for i in range(start_from, self.index):
             yield self.get_relative(-i - 1)
 
-    def __iter__(self):
+    def __iter__(self) -> "LinesIterator":
         return self
 
-    def __next__(self):
+    def __next__(self) -> LineType:
         try:
             return self.next()
         except IndexError:
@@ -134,7 +141,7 @@ def parse_arguments(line_iterator: LinesIterator) -> Dict[str, str]:
     return result
 
 
-def parse_code_blocks(fspath) -> Iterator[CodeBlock]:
+def parse_code_blocks(fspath: str) -> Iterator[CodeBlock]:
     line_iterator = LinesIterator.from_file(fspath)
 
     for lineno, line in line_iterator:
@@ -195,12 +202,12 @@ def parse_code_blocks(fspath) -> Iterator[CodeBlock]:
 
 
 def compile_code_blocks(*blocks: CodeBlock) -> Optional[CodeType]:
-    blocks = sorted(blocks, key=lambda x: x.start_line)
-    if not blocks:
+    sorted_blocks = sorted(blocks, key=lambda x: x.start_line)
+    if not sorted_blocks:
         return None
-    lines = [""] * blocks[-1].end_line
-    path = blocks[0].path
-    for block in blocks:
+    lines = [""] * sorted_blocks[-1].end_line
+    path = sorted_blocks[0].path
+    for block in sorted_blocks:
         lines[block.start_line:block.end_line] = block.lines
     return compile(source="\n".join(lines), mode="exec", filename=path)
 
@@ -208,20 +215,20 @@ def compile_code_blocks(*blocks: CodeBlock) -> Optional[CodeType]:
 class MDModule(pytest.Module):
 
     @staticmethod
-    def caller(code, subtests):
+    def caller(code: CodeType, subtests: object) -> None:
         eval(code, dict(__markdown_pytest_subtests_fixture=subtests))
 
     def collect(self) -> Iterable[pytest.Function]:
         test_prefix = self.config.getoption("--md-prefix")
 
-        for test_name, blocks in groupby(
-            parse_code_blocks(self.fspath),
+        for test_name, blocks_iter in groupby(
+            parse_code_blocks(str(self.fspath)),
             key=lambda x: x.name,
         ):
             if not test_name.startswith(test_prefix):
                 continue
 
-            blocks = list(blocks)
+            blocks = list(blocks_iter)
             code = compile_code_blocks(*blocks)
             if code is None:
                 continue
@@ -233,7 +240,7 @@ class MDModule(pytest.Module):
             )
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--md-prefix", default="test",
         help="Markdown test code-block prefix from comment",
@@ -241,7 +248,9 @@ def pytest_addoption(parser):
 
 
 @pytest.hookimpl(trylast=True)
-def pytest_collect_file(path, parent: pytest.Collector) -> Optional[MDModule]:
+def pytest_collect_file(
+    path: Any, parent: pytest.Collector,
+) -> Optional[MDModule]:
     if path.ext.lower() not in (".md", ".markdown"):
         return None
     return MDModule.from_parent(parent=parent, path=Path(path))
