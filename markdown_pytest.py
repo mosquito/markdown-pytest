@@ -1,5 +1,4 @@
 from functools import partial
-from itertools import groupby
 from pathlib import Path
 from types import CodeType
 from typing import (
@@ -221,14 +220,13 @@ class MDModule(pytest.Module):
     def collect(self) -> Iterable[pytest.Function]:
         test_prefix = self.config.getoption("--md-prefix")
 
-        for test_name, blocks_iter in groupby(
-            parse_code_blocks(str(self.fspath)),
-            key=lambda x: x.name,
-        ):
-            if not test_name.startswith(test_prefix):
+        blocks_by_name: Dict[str, list] = {}
+        for block in parse_code_blocks(str(self.fspath)):
+            if not block.name.startswith(test_prefix):
                 continue
+            blocks_by_name.setdefault(block.name, []).append(block)
 
-            blocks = list(blocks_iter)
+        for test_name, blocks in blocks_by_name.items():
             code = compile_code_blocks(*blocks)
             if code is None:
                 continue

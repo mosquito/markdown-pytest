@@ -183,3 +183,52 @@ assert mul(1, 2) == 2
 ```python
 assert mul(*range(1, 10)) == 362880
 ```
+
+Non-consecutive split test (issue #9)
+--------------------------------------
+
+This tests that code blocks with the same name are combined even when
+separated by blocks with different names.
+
+Part one: define a class
+
+<!--- name: test_non_consecutive_split -->
+```python
+class ManDescription:
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+
+    def __repr__(self):
+        return f"ManDescription(name={self.name!r}, age={self.age!r})"
+```
+
+This is a separator block with a different name:
+
+<!--- name: test_non_consecutive_separator -->
+```python
+assert True
+```
+
+Part two: use the class from part one
+
+<!--- name: test_non_consecutive_split -->
+```python
+description = ManDescription(name='Evgeniy', age=32)
+assert description.name == 'Evgeniy'
+assert description.age == 32
+```
+
+Another separator:
+
+<!--- name: test_non_consecutive_separator_2 -->
+```python
+assert True
+```
+
+Part three: further operations on the object
+
+<!--- name: test_non_consecutive_split -->
+```python
+assert repr(description) == "ManDescription(name='Evgeniy', age=32)"
+```
