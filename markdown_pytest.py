@@ -136,7 +136,12 @@ def parse_arguments(line_iterator: LinesIterator) -> Dict[str, str]:
             continue
 
         key, value = arg.split(":", 1)
-        result[key.strip()] = value.strip()
+        key = key.strip()
+        value = value.strip()
+        if key in result:
+            result[key] = f"{result[key]}, {value}"
+        else:
+            result[key] = value
 
     return result
 
