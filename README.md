@@ -223,6 +223,49 @@ assert counter["foo"] == 1
 
 </details>
 
+Fixtures support
+----------------
+
+You can request pytest fixtures by adding `fixtures: fixture1, fixture2` to the
+markdown comment. The fixtures will be available as variables in the code block.
+
+Single fixture:
+
+````markdown
+<!-- name: test_with_tmp_path; fixtures: tmp_path -->
+```python
+p = tmp_path / "hello.txt"
+p.write_text("hello")
+assert p.read_text() == "hello"
+```
+````
+
+Multiple fixtures:
+
+````markdown
+<!-- name: test_with_fixtures; fixtures: tmp_path, monkeypatch -->
+```python
+import os
+monkeypatch.setenv("DATA_DIR", str(tmp_path))
+assert os.environ["DATA_DIR"] == str(tmp_path)
+```
+````
+
+Split blocks with fixtures — only the first block needs the `fixtures:` declaration:
+
+````markdown
+<!-- name: test_split_fixtures; fixtures: tmp_path -->
+```python
+p = tmp_path / "data.txt"
+p.write_text("hello")
+```
+
+<!-- name: test_split_fixtures -->
+```python
+assert p.read_text() == "hello"
+```
+````
+
 Fictional Code Examples
 -----------------------
 

@@ -1,4 +1,5 @@
-from functools import partial
+import inspect
+
 from pathlib import Path
 from types import CodeType
 from typing import (
@@ -211,11 +212,42 @@ def compile_code_blocks(*blocks: CodeBlock) -> Optional[CodeType]:
     return compile(source="\n".join(lines), mode="exec", filename=path)
 
 
-class MDModule(pytest.Module):
+def _collect_fixture_names(
+    blocks: Iterable[CodeBlock],
+) -> Tuple[str, ...]:
+    names: list[str] = []
+    for block in blocks:
+        arguments = dict(block.arguments)
+        fixtures_str = arguments.get("fixtures", "")
+        for name in fixtures_str.split(","):
+            name = name.strip()
+            if name:
+                names.append(name)
+    return tuple(dict.fromkeys(names))
 
-    @staticmethod
-    def caller(code: CodeType, subtests: object) -> None:
-        eval(code, dict(__markdown_pytest_subtests_fixture=subtests))
+
+def _make_caller(
+    code: CodeType, fixture_names: Tuple[str, ...],
+) -> Any:
+    all_names = tuple(dict.fromkeys((*fixture_names, "subtests")))
+
+    def caller(**kwargs: Any) -> None:
+        subtests = kwargs.pop("subtests")
+        ns: Dict[str, Any] = dict(
+            __markdown_pytest_subtests_fixture=subtests,
+        )
+        ns.update(kwargs)
+        eval(code, ns)
+
+    params = [
+        inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY)
+        for name in all_names
+    ]
+    caller.__signature__ = inspect.Signature(parameters=params)  # type: ignore
+    return caller
+
+
+class MDModule(pytest.Module):
 
     def collect(self) -> Iterable[pytest.Function]:
         test_prefix = self.config.getoption("--md-prefix")
@@ -231,10 +263,12 @@ class MDModule(pytest.Module):
             if code is None:
                 continue
 
+            fixture_names = _collect_fixture_names(blocks)
+
             yield pytest.Function.from_parent(
                 name=test_name,
                 parent=self,
-                callobj=partial(self.caller, code),
+                callobj=_make_caller(code, fixture_names),
             )
 
 
