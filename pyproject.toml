@@ -35,7 +35,9 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "mypy>=1.0",
     "pytest>=8.0",
+    "ruff>=0.8",
 ]
 
 [build-system]
@@ -52,3 +54,36 @@ markdown-pytest = "markdown_pytest"
 "Source" = "https://github.com/mosquito/markdown-pytest"
 "Tracker" = "https://github.com/mosquito/markdown-pytest/issues"
 "Documentation" = "https://github.com/mosquito/markdown-pytest/blob/master/README.rst"
+
+[tool.ruff]
+line-length = 80
+exclude = [
+    ".git",
+    ".tox",
+    ".venv",
+    "build",
+    "dist",
+    "env",
+]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "C90"]
+ignore = ["C901"]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = false
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+follow_imports = "silent"
+no_implicit_reexport = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+files = [
+    "markdown_pytest.py",
+]
