@@ -30,15 +30,13 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development",
 ]
-dependencies = [
-    "pytest-subtests",
-]
+dependencies = []
 
 [dependency-groups]
 dev = [
-    "mypy>=1.0",
-    "pytest>=8.0",
-    "ruff>=0.8",
+    "mypy",
+    "pytest>=9.0",
+    "ruff",
 ]
 
 [build-system]
