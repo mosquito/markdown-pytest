@@ -32,6 +32,9 @@ classifiers = [
 ]
 dependencies = []
 
+[project.optional-dependencies]
+async = ["pytest-asyncio>=1,<2"]
+
 [dependency-groups]
 dev = [
     "mypy",
