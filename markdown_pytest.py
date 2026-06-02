@@ -3,6 +3,7 @@ import inspect
 import os
 
 from ast import PyCF_ALLOW_TOP_LEVEL_AWAIT
+from contextlib import suppress
 from pathlib import Path
 from types import CodeType
 from typing import (
@@ -432,11 +433,8 @@ class MDModule(pytest.Module):
             for mark in marks:
                 item.add_marker(mark)
             if is_async and not use_subprocess:
-                try:
+                with suppress(ImportError):
                     from pytest_asyncio.plugin import PytestAsyncioFunction
-                except ImportError:
-                    pass
-                else:
                     item.add_marker(pytest.mark.asyncio)
                     subclass = PytestAsyncioFunction.item_subclass_for(item)
                     if subclass is not None:
