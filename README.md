@@ -529,6 +529,70 @@ assert _setup_value == 99
 > features require the in-process test runner. If a test needs fixtures,
 > omit `subprocess: true`.
 
+Asyncio
+-----------
+
+Prefix the test name with `async ` to enable top-level `await` inside the
+code block. The plugin compiles the block with
+`PyCF_ALLOW_TOP_LEVEL_AWAIT` and runs the resulting coroutine via
+`asyncio.run`.
+
+``````
+<!-- name: async test_async -->
+```python
+import asyncio
+await asyncio.sleep(0)
+assert True
+```
+``````
+
+Live example:
+
+<!-- name: async test_async_quick_start -->
+```python
+import asyncio
+await asyncio.sleep(0)
+assert True
+```
+
+When a test is split across multiple blocks, only one declaration
+needs the `async ` prefix — the whole test is then treated as async:
+
+``````
+<!-- name: async test_async_split -->
+```python
+import asyncio
+
+async def double(x):
+    await asyncio.sleep(0)
+    return x * 2
+```
+
+<!-- name: test_async_split -->
+```python
+assert await double(21) == 42
+```
+``````
+
+<!-- name: async test_async_split -->
+```python
+import asyncio
+
+async def double(x):
+    return x * 2
+```
+
+<!-- name: test_async_split -->
+```python
+assert await double(21) == 42
+```
+
+Async tests work with fixtures, subtests (`case:`), marks and
+`subprocess: true`. In subprocess mode the collected source is wrapped in
+`async def __amain(): ...; asyncio.run(__amain())` before being executed
+in the child process.
+
+
 Marks
 -----
 
@@ -632,7 +696,9 @@ are parsed identically:
 Available comment parameters:
 
 * `name` (required) — the test name. Must start with `test` by default
-  (see [Configuration](#configuration) to change the prefix).
+  (see [Configuration](#configuration) to change the prefix). Prefix the
+  name with `async ` (e.g. `name: async test_foo`) to enable top-level
+  `await` in the block — see [Async tests](#async-tests).
 * `case` — marks the block as a subtest (see [Subtests](#subtests)).
 * `fixtures` — comma-separated list of pytest fixtures to inject
   (see [Fixtures](#fixtures)).

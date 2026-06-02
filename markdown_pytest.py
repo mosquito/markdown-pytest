@@ -1,7 +1,9 @@
+import asyncio
 import builtins
 import inspect
 import os
 
+from ast import PyCF_ALLOW_TOP_LEVEL_AWAIT
 from pathlib import Path
 from types import CodeType
 from typing import (
@@ -18,12 +20,16 @@ from typing import (
 import pytest
 
 
+_ASYNC_PREFIX = "async "
+
+
 class CodeBlock(NamedTuple):
     start_line: int
     lines: Tuple[str, ...]
     arguments: Tuple[Tuple[str, str], ...]
     path: str
     name: str
+    is_async: bool = False
 
     @property
     def end_line(self) -> int:
@@ -207,12 +213,19 @@ def parse_code_blocks(fspath: str) -> Iterator[CodeBlock]:
                 f"msg='{case} line={start_lineno}'):",
             )
 
+        name = arguments.pop("name")
+        is_async = False
+        if name.startswith(_ASYNC_PREFIX):
+            is_async = True
+            name = name.removeprefix(_ASYNC_PREFIX)
+
         block = CodeBlock(
             start_line=start_lineno,
             lines=tuple(code_lines),
             arguments=tuple(arguments.items()),
             path=str(fspath),
-            name=arguments.pop("name"),
+            name=name,
+            is_async=is_async,
         )
 
         yield block
@@ -231,12 +244,18 @@ def _build_source(
     return "\n".join(lines), path
 
 
-def compile_code_blocks(*blocks: CodeBlock) -> Optional[CodeType]:
+def compile_code_blocks(
+    *blocks: CodeBlock,
+    is_async: bool = False,
+) -> Optional[CodeType]:
     result = _build_source(*blocks)
     if result is None:
         return None
     source, path = result
-    return compile(source=source, mode="exec", filename=path)
+    flags = PyCF_ALLOW_TOP_LEVEL_AWAIT if is_async else 0
+    return compile(
+        source=source, mode="exec", filename=path, flags=flags,
+    )
 
 
 def _collect_fixture_names(
@@ -296,6 +315,7 @@ def _collect_marks(
 def _make_caller(
     code: CodeType,
     fixture_names: Tuple[str, ...],
+    is_async: bool = False,
 ) -> Any:
     all_names = tuple(dict.fromkeys((*fixture_names, "subtests")))
 
@@ -305,7 +325,10 @@ def _make_caller(
             __markdown_pytest_subtests_fixture=subtests,
         )
         ns.update(kwargs)
-        eval(code, ns)
+        if is_async:
+            asyncio.run(eval(code, ns))
+        else:
+            eval(code, ns)
 
     params = [
         inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY)
@@ -317,10 +340,21 @@ def _make_caller(
 
 class MDModule(pytest.Module):
     @staticmethod
-    def subprocess_caller(source: str, path: str) -> None:
+    def subprocess_caller(
+        source: str, path: str, is_async: bool = False,
+    ) -> None:
         import subprocess
         import sys
         import tempfile
+        import textwrap
+
+        if is_async:
+            source = (
+                "import asyncio\n"
+                "async def __amain():\n"
+                f"{textwrap.indent(source, '    ')}\n"
+                "asyncio.run(__amain())\n"
+            )
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".py", delete=False,
@@ -358,6 +392,7 @@ class MDModule(pytest.Module):
                 dict(b.arguments).get("subprocess") == "true"
                 for b in blocks
             )
+            is_async = any(b.is_async for b in blocks)
             marks = _collect_marks(blocks)
 
             if use_subprocess:
@@ -369,11 +404,11 @@ class MDModule(pytest.Module):
                     name=test_name,
                     parent=self,
                     callobj=partial(
-                        self.subprocess_caller, source, path,
+                        self.subprocess_caller, source, path, is_async,
                     ),
                 )
             else:
-                code = compile_code_blocks(*blocks)
+                code = compile_code_blocks(*blocks, is_async=is_async)
                 if code is None:
                     continue
 
@@ -382,7 +417,9 @@ class MDModule(pytest.Module):
                 item = pytest.Function.from_parent(
                     name=test_name,
                     parent=self,
-                    callobj=_make_caller(code, fixture_names),
+                    callobj=_make_caller(
+                        code, fixture_names, is_async=is_async,
+                    ),
                 )
 
             for mark in marks:
