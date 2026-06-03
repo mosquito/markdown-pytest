@@ -1,5 +1,6 @@
 import builtins
 import inspect
+import io
 import os
 
 from ast import PyCF_ALLOW_TOP_LEVEL_AWAIT
@@ -312,6 +313,37 @@ def _collect_marks(
     return tuple(marks)
 
 
+def _make_doctest_caller(
+    source: str,
+    path: str,
+    fixture_names: Tuple[str, ...],
+) -> Any:
+    import doctest
+
+    all_names = tuple(dict.fromkeys((*fixture_names, "subtests")))
+
+    def caller(**kwargs: Any) -> None:
+        kwargs.pop("subtests")
+        globs: Dict[str, Any] = dict(kwargs)
+
+        parser = doctest.DocTestParser()
+        test = parser.get_doctest(source, globs, path, path, 0)
+
+        out_buf = io.StringIO()
+        runner = doctest.DocTestRunner(verbose=False)
+        results = runner.run(test, out=out_buf.write)
+
+        if results.failed:
+            raise AssertionError(out_buf.getvalue())
+
+    params = [
+        inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY)
+        for name in all_names
+    ]
+    caller.__signature__ = inspect.Signature(parameters=params)  # type: ignore
+    return caller
+
+
 def _make_caller(
     code: CodeType,
     fixture_names: Tuple[str, ...],
@@ -400,6 +432,10 @@ class MDModule(pytest.Module):
                 dict(b.arguments).get("subprocess") == "true"
                 for b in blocks
             )
+            use_repl = any(
+                dict(b.arguments).get("repl") == "true"
+                for b in blocks
+            )
             is_async = any(b.is_async for b in blocks)
             marks = _collect_marks(blocks)
 
@@ -413,6 +449,19 @@ class MDModule(pytest.Module):
                     parent=self,
                     callobj=partial(
                         self.subprocess_caller, source, path, is_async,
+                    ),
+                )
+            elif use_repl:
+                result = _build_source(*blocks)
+                if result is None:
+                    continue
+                source, path = result
+                fixture_names = _collect_fixture_names(blocks)
+                item = pytest.Function.from_parent(
+                    name=test_name,
+                    parent=self,
+                    callobj=_make_doctest_caller(
+                        source, path, fixture_names,
                     ),
                 )
             else:
