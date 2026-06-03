@@ -883,6 +883,46 @@ def test_repl_async_failure(pytester):
     result.stdout.fnmatch_lines(["*Failed example*"])
 
 
+def test_repl_async_output_mismatch_fails(pytester):
+    """Async doctest actually runs: wrong expected output must produce failure."""
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: async test_r; repl: true -->
+```python
+>>> async def value():
+...     return 42
+>>> await value()
+99
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*Failed example*"])
+
+
+def test_repl_async_side_effect_runs(pytester):
+    """Await actually executes: side effect visible in next example."""
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: async test_r; repl: true -->
+```python
+>>> log = []
+>>> async def append(x):
+...     log.append(x)
+>>> await append(1)
+>>> await append(2)
+>>> log
+[1, 2]
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
+
+
 def test_repl_coexists_with_regular(pytester):
     pytester.makefile(
         ".md",

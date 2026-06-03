@@ -53,6 +53,16 @@ hello, pytest
 42
 ```
 
+## Async wrong output (must fail)
+
+<!-- name: async test_repl_async_wrong_output; repl: true; mark: xfail -->
+```python
+>>> async def compute():
+...     return 42
+>>> await compute()
+99
+```
+
 ## Split blocks
 
 <!-- name: test_repl_split; repl: true -->

@@ -594,7 +594,7 @@ class MDModule(pytest.Module):
 
             for mark in marks:
                 item.add_marker(mark)
-            if is_async and not use_subprocess:
+            if is_async and not use_subprocess and not use_repl:
                 with suppress(ImportError):
                     from pytest_asyncio.plugin import PytestAsyncioFunction
                     item.add_marker(pytest.mark.asyncio)
