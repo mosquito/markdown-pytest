@@ -831,6 +831,58 @@ True
     result.assert_outcomes(passed=1)
 
 
+def test_repl_async_basic(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: async test_r; repl: true -->
+```python
+>>> import asyncio
+>>> await asyncio.sleep(0)
+>>> 1 + 1
+2
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_repl_async_return_value(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: async test_r; repl: true -->
+```python
+>>> async def double(x):
+...     return x * 2
+>>> await double(21)
+42
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_repl_async_failure(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: async test_r; repl: true -->
+```python
+>>> async def answer():
+...     return 42
+>>> await answer()
+99
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*Failed example*"])
+
+
 def test_repl_coexists_with_regular(pytester):
     pytester.makefile(
         ".md",
