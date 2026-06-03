@@ -923,6 +923,35 @@ def test_repl_async_side_effect_runs(pytester):
     result.assert_outcomes(passed=1)
 
 
+def test_repl_async_no_pytest_asyncio(pytester):
+    """Async REPL runs via asyncio.run() without pytest-asyncio installed."""
+    pytester.makeini("[pytest]\n")  # isolate from parent pyproject.toml (no asyncio_mode)
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: async test_pass; repl: true -->
+```python
+>>> async def double(x):
+...     return x * 2
+>>> await double(21)
+42
+```
+
+<!-- name: async test_fail; repl: true -->
+```python
+>>> async def compute():
+...     return 1
+>>> await compute()
+99
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-p", "no:asyncio", "-v")
+    # test_pass must pass and test_fail must fail —
+    # proving the coroutines actually ran, not silently skipped
+    result.assert_outcomes(passed=1, failed=1)
+
+
 def test_repl_coexists_with_regular(pytester):
     pytester.makefile(
         ".md",

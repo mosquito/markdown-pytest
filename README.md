@@ -710,6 +710,12 @@ across examples:
 
 > **Note:** `subprocess: true` and `repl: true` cannot be combined.
 
+> **Note:** async REPL blocks run via `asyncio.run()` and work without any
+> additional dependencies. Install `markdown-pytest[async]`
+> (which provides [pytest-asyncio](https://pypi.org/project/pytest-asyncio/))
+> only if you need async fixtures or want to share a single event loop
+> between the test and its fixtures.
+
 Marks
 -----
 
