@@ -10,6 +10,13 @@ await asyncio.sleep(0)
 assert True
 ```
 
+Async test without await:
+
+<!-- name: async test_async_basic_no_await -->
+```python
+assert True
+```
+
 Async test with `await` returning a value:
 
 <!-- name: async test_async_await_value -->
@@ -52,6 +59,15 @@ async def write_file(path):
 path = tmp_path / "async.txt"
 await write_file(path)
 assert path.read_text() == "test"
+```
+
+Async test combined with an async pytest fixture:
+
+<!-- name: async test_async_async_fixture; fixtures: async_fixture -->
+```python
+import asyncio
+
+assert async_fixture is asyncio.get_event_loop()
 ```
 
 Async test with subtests (`case:`):

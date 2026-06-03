@@ -24,6 +24,10 @@ Install with pip:
 
     pip install markdown-pytest
 
+Or with asyncio support:
+
+    pip install markdown-pytest[async]
+
 Place an HTML comment with a `name` key directly above a `python` code
 fence. The plugin collects it as a test. In your `.md` file write this:
 
@@ -533,9 +537,9 @@ Asyncio
 -----------
 
 Prefix the test name with `async ` to enable top-level `await` inside the
-code block. The plugin compiles the block with
-`PyCF_ALLOW_TOP_LEVEL_AWAIT` and runs the resulting coroutine via
-`asyncio.run`.
+code block and use async fixtures.
+
+Requires `pytest-asyncio` or other pytest plugins with asyncio support.
 
 ``````
 <!-- name: async test_async -->

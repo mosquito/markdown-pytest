@@ -32,16 +32,23 @@ classifiers = [
 ]
 dependencies = []
 
+[project.optional-dependencies]
+async = ["pytest-asyncio>=1,<2"]
+
 [dependency-groups]
 dev = [
     "mypy",
     "pytest>=9.0",
+    "pytest-asyncio>=1,<2",
     "ruff",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.hatch.build.targets.wheel]
 packages = ["markdown_pytest.py"]

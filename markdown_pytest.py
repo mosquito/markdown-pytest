@@ -1,9 +1,9 @@
-import asyncio
 import builtins
 import inspect
 import os
 
 from ast import PyCF_ALLOW_TOP_LEVEL_AWAIT
+from contextlib import suppress
 from pathlib import Path
 from types import CodeType
 from typing import (
@@ -319,15 +319,23 @@ def _make_caller(
 ) -> Any:
     all_names = tuple(dict.fromkeys((*fixture_names, "subtests")))
 
-    def caller(**kwargs: Any) -> None:
-        subtests = kwargs.pop("subtests")
-        ns: Dict[str, Any] = dict(
-            __markdown_pytest_subtests_fixture=subtests,
-        )
-        ns.update(kwargs)
-        if is_async:
-            asyncio.run(eval(code, ns))
-        else:
+    if is_async:
+        async def caller(**kwargs: Any) -> None:
+            subtests = kwargs.pop("subtests")
+            ns: Dict[str, Any] = dict(
+                __markdown_pytest_subtests_fixture=subtests,
+            )
+            ns.update(kwargs)
+            result = eval(code, ns)
+            if inspect.iscoroutine(result):
+                await result
+    else:
+        def caller(**kwargs: Any) -> None:
+            subtests = kwargs.pop("subtests")
+            ns: Dict[str, Any] = dict(
+                __markdown_pytest_subtests_fixture=subtests,
+            )
+            ns.update(kwargs)
             eval(code, ns)
 
     params = [
@@ -424,6 +432,13 @@ class MDModule(pytest.Module):
 
             for mark in marks:
                 item.add_marker(mark)
+            if is_async and not use_subprocess:
+                with suppress(ImportError):
+                    from pytest_asyncio.plugin import PytestAsyncioFunction
+                    item.add_marker(pytest.mark.asyncio)
+                    subclass = PytestAsyncioFunction.item_subclass_for(item)
+                    if subclass is not None:
+                        item = subclass._from_function(item)
             yield item
 
 
