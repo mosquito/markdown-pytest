@@ -682,9 +682,9 @@ Some prose in between...
 
 ### Async doctest
 
-Prefix the name with `async ` to allow top-level `await` inside a REPL
-block. Each example runs inside a single event loop, so state is preserved
-across examples:
+Prefix the name with `async ` to enable top-level `await` inside a REPL
+block — the same prefix used for regular async tests. State is preserved
+across all examples within the same event loop:
 
 ``````
 <!-- name: async test_repl_async; repl: true -->
@@ -710,11 +710,11 @@ across examples:
 
 > **Note:** `subprocess: true` and `repl: true` cannot be combined.
 
-> **Note:** async REPL blocks run via `asyncio.run()` and work without any
-> additional dependencies. Install `markdown-pytest[async]`
-> (which provides [pytest-asyncio](https://pypi.org/project/pytest-asyncio/))
-> only if you need async fixtures or want to share a single event loop
-> between the test and its fixtures.
+> **Note:** sync REPL blocks (no `async ` prefix) run with no extra
+> dependencies. Async REPL blocks require an async pytest plugin such as
+> `pytest-asyncio` — install via `pip install markdown-pytest[async]`.
+> The plugin manages the event loop, so async fixtures work the same way
+> as in regular async tests.
 
 Marks
 -----

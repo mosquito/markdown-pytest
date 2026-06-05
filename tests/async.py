@@ -2,6 +2,8 @@ import asyncio
 
 import pytest
 
+pytest_asyncio = pytest.importorskip("pytest_asyncio")
+
 
 @pytest.fixture
 async def async_fixture():

@@ -1,4 +1,3 @@
-import asyncio
 import builtins
 import inspect
 import io
@@ -403,7 +402,7 @@ def _make_async_doctest_caller(
 
     all_names = tuple(dict.fromkeys((*fixture_names, "subtests")))
 
-    def caller(**kwargs: Any) -> None:
+    async def caller(**kwargs: Any) -> None:
         kwargs.pop("subtests")
         globs: Dict[str, Any] = dict(kwargs)
 
@@ -411,7 +410,7 @@ def _make_async_doctest_caller(
         test = parser.get_doctest(source, globs, path, path, 0)
 
         out_buf = io.StringIO()
-        failures = asyncio.run(_run_async_doctest(test, out_buf.write))
+        failures = await _run_async_doctest(test, out_buf.write)
 
         if failures:
             raise AssertionError(out_buf.getvalue())
@@ -594,7 +593,7 @@ class MDModule(pytest.Module):
 
             for mark in marks:
                 item.add_marker(mark)
-            if is_async and not use_subprocess and not use_repl:
+            if is_async and not use_subprocess:
                 with suppress(ImportError):
                     from pytest_asyncio.plugin import PytestAsyncioFunction
                     item.add_marker(pytest.mark.asyncio)
