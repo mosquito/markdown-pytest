@@ -539,7 +539,11 @@ Asyncio
 Prefix the test name with `async ` to enable top-level `await` inside the
 code block and use async fixtures.
 
-Requires `pytest-asyncio` or other pytest plugins with asyncio support.
+Requires an async pytest plugin to manage the event loop — `pytest-asyncio`,
+`aiomisc-pytest`, or any other plugin that can run `async def` test functions.
+Without such a plugin, async tests fail immediately with a message listing
+available options. Install `pytest-asyncio` via
+`pip install markdown-pytest[async]`.
 
 ``````
 <!-- name: async test_async -->
