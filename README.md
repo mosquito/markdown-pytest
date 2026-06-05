@@ -152,8 +152,7 @@ counter["foo"] += 1
 assert counter["foo"] == 1
 ```
 
-The [pytest-subtests](https://pypi.org/project/pytest-subtests/) package
-is installed automatically as a dependency.
+Subtests support is built into pytest 9.0+ and requires no extra packages.
 
 Fixtures
 --------
