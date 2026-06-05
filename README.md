@@ -710,11 +710,12 @@ across all examples within the same event loop:
 
 > **Note:** `subprocess: true` and `repl: true` cannot be combined.
 
-> **Note:** sync REPL blocks (no `async ` prefix) run with no extra
-> dependencies. Async REPL blocks require an async pytest plugin such as
-> `pytest-asyncio` — install via `pip install markdown-pytest[async]`.
-> The plugin manages the event loop, so async fixtures work the same way
-> as in regular async tests.
+> **Note:** sync REPL blocks (no `async ` prefix) work without any extra
+> dependencies. Async REPL blocks require an async pytest plugin to manage
+> the event loop — `pytest-asyncio`, `aiomisc-pytest`, or any other plugin
+> that can run `async def` test functions. Without such a plugin, async REPL
+> tests fail immediately with a clear message listing available options.
+> Install `pytest-asyncio` via `pip install markdown-pytest[async]`.
 
 Marks
 -----
