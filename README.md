@@ -539,7 +539,11 @@ Asyncio
 Prefix the test name with `async ` to enable top-level `await` inside the
 code block and use async fixtures.
 
-Requires `pytest-asyncio` or other pytest plugins with asyncio support.
+Requires an async pytest plugin to manage the event loop — `pytest-asyncio`,
+`aiomisc-pytest`, or any other plugin that can run `async def` test functions.
+Without such a plugin, async tests fail immediately with a message listing
+available options. Install `pytest-asyncio` via
+`pip install markdown-pytest[async]`.
 
 ``````
 <!-- name: async test_async -->
@@ -596,6 +600,126 @@ Async tests work with fixtures, subtests (`case:`), marks and
 `async def __amain(): ...; asyncio.run(__amain())` before being executed
 in the child process.
 
+
+Doctest / REPL
+--------------
+
+Add `repl: true` to run a block as a
+[doctest](https://docs.python.org/3/library/doctest.html). Lines starting
+with `>>>` (or `...` for continuation) are the code; lines that follow
+without a prompt are the expected output. This is Python's standard
+interactive shell format, rendered as normal syntax-highlighted Python in
+every Markdown viewer.
+
+``````
+<!-- name: test_repl_greet; repl: true -->
+```python
+>>> def greet(name):
+...     return f"Hello, {name}!"
+>>> greet("world")
+'Hello, world!'
+>>> print(greet("pytest"))
+Hello, pytest!
+```
+``````
+
+Live example:
+
+<!-- name: test_repl_greet; repl: true -->
+```python
+>>> def greet(name):
+...     return f"Hello, {name}!"
+>>> greet("world")
+'Hello, world!'
+>>> print(greet("pytest"))
+Hello, pytest!
+```
+
+All standard doctest directives work — `# doctest: +ELLIPSIS`,
+`# doctest: +NORMALIZE_WHITESPACE`, `# doctest: +SKIP`, and so on:
+
+``````
+<!-- name: test_repl_ellipsis; repl: true -->
+```python
+>>> [1, 2, 3, 4, 5]  # doctest: +ELLIPSIS
+[1, 2, ...]
+```
+``````
+
+<!-- name: test_repl_ellipsis; repl: true -->
+```python
+>>> [1, 2, 3, 4, 5]  # doctest: +ELLIPSIS
+[1, 2, ...]
+```
+
+Split blocks work the same way as with regular tests — multiple blocks
+with the same name share a session, so variables defined in an earlier
+block are available in later ones:
+
+``````
+<!-- name: test_repl_split_demo; repl: true -->
+```python
+>>> items = [1, 2, 3]
+```
+
+Some prose in between...
+
+<!-- name: test_repl_split_demo; repl: true -->
+```python
+>>> items.append(4)
+>>> items
+[1, 2, 3, 4]
+```
+``````
+
+<!-- name: test_repl_split_demo; repl: true -->
+```python
+>>> items = [1, 2, 3]
+```
+
+<!-- name: test_repl_split_demo; repl: true -->
+```python
+>>> items.append(4)
+>>> items
+[1, 2, 3, 4]
+```
+
+### Async doctest
+
+Prefix the name with `async ` to enable top-level `await` inside a REPL
+block — the same prefix used for regular async tests. State is preserved
+across all examples within the same event loop:
+
+``````
+<!-- name: async test_repl_async; repl: true -->
+```python
+>>> import asyncio
+>>> async def fetch():
+...     await asyncio.sleep(0)
+...     return 42
+>>> await fetch()
+42
+```
+``````
+
+<!-- name: async test_repl_async; repl: true -->
+```python
+>>> import asyncio
+>>> async def fetch():
+...     await asyncio.sleep(0)
+...     return 42
+>>> await fetch()
+42
+```
+
+> **Note:** `subprocess: true` and `repl: true` cannot be combined.
+
+> **Note:** sync REPL blocks (no `async ` prefix) work without any extra
+> dependencies. Async REPL blocks require an async pytest plugin to manage
+> the event loop — `pytest-asyncio`, `aiomisc-pytest`, or any other plugin
+> that can run `async def` test functions. Without such a plugin, async REPL
+> tests fail immediately with a clear message listing available options.
+> Install `pytest-asyncio` via `pip install markdown-pytest[async]`.
 
 Marks
 -----
@@ -708,6 +832,8 @@ Available comment parameters:
   (see [Fixtures](#fixtures)).
 * `subprocess` — set to `true` to run the test in a separate Python
   process (see [Subprocess mode](#subprocess-mode)).
+* `repl` — set to `true` to run the block as a doctest using Python's
+  interactive shell format (see [Doctest / REPL](#doctest--repl)).
 * `mark` — a pytest mark expression to apply to the test
   (see [Marks](#marks)). Examples: `xfail`, `skip(reason="...")`,
   `xfail(raises=ZeroDivisionError)`.

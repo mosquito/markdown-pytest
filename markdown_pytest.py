@@ -1,6 +1,8 @@
 import builtins
 import inspect
+import io
 import os
+import sys
 
 from ast import PyCF_ALLOW_TOP_LEVEL_AWAIT
 from contextlib import suppress
@@ -312,6 +314,146 @@ def _collect_marks(
     return tuple(marks)
 
 
+def _optionflags(example: Any) -> int:
+    flags = 0
+    for flag, value in example.options.items():
+        if value:
+            flags |= flag
+    return flags
+
+
+async def _run_async_doctest(test: Any, out: Any) -> int:
+    import doctest
+    import traceback as _tb
+
+    checker = doctest.OutputChecker()
+    failures = 0
+
+    for example in test.examples:
+        if example.options.get(doctest.SKIP, False):
+            continue
+
+        capture = io.StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = capture
+        exc_info = None
+
+        try:
+            code = compile(
+                example.source,
+                test.filename or "<doctest>",
+                "single",
+                PyCF_ALLOW_TOP_LEVEL_AWAIT,
+            )
+            result = eval(code, test.globs)
+            if inspect.isawaitable(result):
+                await result
+        except SystemExit:
+            sys.stdout = old_stdout
+            raise
+        except BaseException:
+            exc_info = sys.exc_info()
+        finally:
+            sys.stdout = old_stdout
+
+        actual = capture.getvalue()
+
+        if exc_info is not None:
+            exc_type, exc_val, _ = exc_info
+            if example.exc_msg is not None:
+                exc_str = "".join(_tb.format_exception_only(exc_type, exc_val))
+                if checker.check_output(example.exc_msg, exc_str, _optionflags(example)):
+                    continue
+            failures += 1
+            tb_str = "".join(_tb.format_exception(*exc_info))
+            out(
+                f"Failed example:\n    {example.source.rstrip()}\n"
+                "Exception raised:\n"
+                + "".join(f"    {line}" for line in tb_str.splitlines(keepends=True))
+                + "\n"
+            )
+            continue
+
+        if not example.want:
+            continue
+
+        if checker.check_output(example.want, actual, _optionflags(example)):
+            continue
+
+        failures += 1
+        out(
+            f"Failed example:\n    {example.source.rstrip()}\n"
+            "Expected:\n"
+            + "".join(f"    {line}" for line in example.want.splitlines(keepends=True))
+            + "Got:\n"
+            + "".join(f"    {line}" for line in actual.splitlines(keepends=True))
+            + "\n"
+        )
+
+    return failures
+
+
+def _make_async_doctest_caller(
+    source: str,
+    path: str,
+    fixture_names: Tuple[str, ...],
+) -> Any:
+    import doctest
+
+    all_names = tuple(dict.fromkeys((*fixture_names, "subtests")))
+
+    async def caller(**kwargs: Any) -> None:
+        kwargs.pop("subtests")
+        globs: Dict[str, Any] = dict(kwargs)
+
+        parser = doctest.DocTestParser()
+        test = parser.get_doctest(source, globs, path, path, 0)
+
+        out_buf = io.StringIO()
+        failures = await _run_async_doctest(test, out_buf.write)
+
+        if failures:
+            raise AssertionError(out_buf.getvalue())
+
+    params = [
+        inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY)
+        for name in all_names
+    ]
+    caller.__signature__ = inspect.Signature(parameters=params)  # type: ignore
+    return caller
+
+
+def _make_doctest_caller(
+    source: str,
+    path: str,
+    fixture_names: Tuple[str, ...],
+) -> Any:
+    import doctest
+
+    all_names = tuple(dict.fromkeys((*fixture_names, "subtests")))
+
+    def caller(**kwargs: Any) -> None:
+        kwargs.pop("subtests")
+        globs: Dict[str, Any] = dict(kwargs)
+
+        parser = doctest.DocTestParser()
+        test = parser.get_doctest(source, globs, path, path, 0)
+
+        out_buf = io.StringIO()
+        runner = doctest.DocTestRunner(verbose=False)
+        results = runner.run(test, out=out_buf.write)
+
+        if results.failed:
+            raise AssertionError(out_buf.getvalue())
+
+    params = [
+        inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY)
+        for name in all_names
+    ]
+    caller.__signature__ = inspect.Signature(parameters=params)  # type: ignore
+    return caller
+
+
 def _make_caller(
     code: CodeType,
     fixture_names: Tuple[str, ...],
@@ -400,6 +542,10 @@ class MDModule(pytest.Module):
                 dict(b.arguments).get("subprocess") == "true"
                 for b in blocks
             )
+            use_repl = any(
+                dict(b.arguments).get("repl") == "true"
+                for b in blocks
+            )
             is_async = any(b.is_async for b in blocks)
             marks = _collect_marks(blocks)
 
@@ -414,6 +560,21 @@ class MDModule(pytest.Module):
                     callobj=partial(
                         self.subprocess_caller, source, path, is_async,
                     ),
+                )
+            elif use_repl:
+                result = _build_source(*blocks)
+                if result is None:
+                    continue
+                source, path = result
+                fixture_names = _collect_fixture_names(blocks)
+                caller_fn = (
+                    _make_async_doctest_caller if is_async
+                    else _make_doctest_caller
+                )
+                item = pytest.Function.from_parent(
+                    name=test_name,
+                    parent=self,
+                    callobj=caller_fn(source, path, fixture_names),
                 )
             else:
                 code = compile_code_blocks(*blocks, is_async=is_async)

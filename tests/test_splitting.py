@@ -729,3 +729,216 @@ assert False, "expected failure"
     )
     result = pytester.runpytest_subprocess("-v")
     result.assert_outcomes(xfailed=1)
+
+
+# --- repl / doctest tests ---
+
+
+def test_repl_block_parsed(md_file):
+    blocks = parse_blocks(
+        md_file,
+        """\
+        <!-- name: test_r; repl: true -->
+        ```python
+        >>> 1 + 1
+        2
+        ```
+    """,
+    )
+    assert len(blocks) == 1
+    assert blocks[0].name == "test_r"
+    assert dict(blocks[0].arguments).get("repl") == "true"
+
+
+def test_repl_basic(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_r; repl: true -->
+```python
+>>> 1 + 1
+2
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_repl_print(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_r; repl: true -->
+```python
+>>> print("hello")
+hello
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_repl_failure(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_r; repl: true -->
+```python
+>>> 1 + 1
+3
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*Failed example*"])
+
+
+def test_repl_split_blocks(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_r; repl: true -->
+```python
+>>> x = 42
+```
+
+<!-- name: test_r; repl: true -->
+```python
+>>> x
+42
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_repl_with_fixture(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_r; repl: true; fixtures: tmp_path -->
+```python
+>>> tmp_path.is_dir()
+True
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_repl_async_basic(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: async test_r; repl: true -->
+```python
+>>> import asyncio
+>>> await asyncio.sleep(0)
+>>> 1 + 1
+2
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_repl_async_return_value(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: async test_r; repl: true -->
+```python
+>>> async def double(x):
+...     return x * 2
+>>> await double(21)
+42
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_repl_async_failure(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: async test_r; repl: true -->
+```python
+>>> async def answer():
+...     return 42
+>>> await answer()
+99
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*Failed example*"])
+
+
+def test_repl_async_output_mismatch_fails(pytester):
+    """Async doctest actually runs: wrong expected output must produce failure."""
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: async test_r; repl: true -->
+```python
+>>> async def value():
+...     return 42
+>>> await value()
+99
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*Failed example*"])
+
+
+def test_repl_async_side_effect_runs(pytester):
+    """Await actually executes: side effect visible in next example."""
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: async test_r; repl: true -->
+```python
+>>> log = []
+>>> async def append(x):
+...     log.append(x)
+>>> await append(1)
+>>> await append(2)
+>>> log
+[1, 2]
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
+
+
+
+def test_repl_coexists_with_regular(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_regular -->
+```python
+assert 1 + 1 == 2
+```
+
+<!-- name: test_repl; repl: true -->
+```python
+>>> 1 + 1
+2
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=2)
