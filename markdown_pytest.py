@@ -532,7 +532,7 @@ class MDModule(pytest.Module):
         test_prefix = self.config.getoption("--md-prefix")
 
         blocks_by_name: Dict[str, list] = {}
-        for block in parse_code_blocks(str(self.fspath)):
+        for block in parse_code_blocks(str(self.path)):
             if not block.name.startswith(test_prefix):
                 continue
             blocks_by_name.setdefault(block.name, []).append(block)
@@ -613,9 +613,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 @pytest.hookimpl(trylast=True)
 def pytest_collect_file(
-    path: Any,
+    file_path: Path,
     parent: pytest.Collector,
 ) -> Optional[MDModule]:
-    if path.ext.lower() not in (".md", ".markdown"):
+    if file_path.suffix.lower() not in (".md", ".markdown"):
         return None
-    return MDModule.from_parent(parent=parent, path=Path(path))
+    return MDModule.from_parent(parent=parent, path=file_path)
