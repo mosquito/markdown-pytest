@@ -942,3 +942,18 @@ assert 1 + 1 == 2
     )
     result = pytester.runpytest_subprocess("-v")
     result.assert_outcomes(passed=2)
+
+
+def test_parse_code_block_with_linenums_attribute(pytester):
+    pytester.makefile(
+        ".md",
+        test_doc="""\
+<!-- name: test_linenums -->
+```python linenums="1"
+x = 42
+assert x == 42
+```
+""",
+    )
+    result = pytester.runpytest_subprocess("-v")
+    result.assert_outcomes(passed=1)
