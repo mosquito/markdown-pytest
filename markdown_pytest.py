@@ -178,7 +178,8 @@ def parse_code_blocks(fspath: str) -> Iterator[CodeBlock]:
         backtick_count = len(stripped) - len(stripped.lstrip("`"))
         info_string = stripped[backtick_count:].strip()
 
-        if info_string != "python":
+        info_words = info_string.split()
+        if not info_words or info_words[0] != "python":
             # Non-Python fenced block (```bash, ```json, bare ```, etc.)
             # Skip to the closing fence
             closing_fence = "`" * backtick_count
